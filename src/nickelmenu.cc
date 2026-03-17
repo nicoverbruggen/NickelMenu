@@ -215,9 +215,6 @@ static int nm_init() {
         NM_LOG("... warning: size returned by nm_global_config_items is 0, ignoring for now (this is a bug; it should always have a menu item whether the default, an error, or the actual config)");
     }
 
-    // FORK: always dump log to /mnt/onboard/.kobo/ for debugging (remove this line to revert)
-    nh_dump_log();
-
     return 0;
 }
 
@@ -495,7 +492,7 @@ extern "C" __attribute__((visibility("default"))) void _nm_homepageview_hook(Hom
     NM_LOG("HomePageView::HomePageView(%p, %p)", _this, parent);
     HomePageView_HomePageView(_this, parent);
 
-    const char *hide_widgets[] = {"row1col2", "row2col2", "row3"};
+    const char *hide_widgets[] = {"row1col2", "row3"};
 
     for (size_t i = 0; i < sizeof(hide_widgets) / sizeof(hide_widgets[0]); i++) {
         char key[32];

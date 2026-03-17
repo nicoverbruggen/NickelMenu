@@ -229,9 +229,6 @@
 #              hide_home_row1col2_enabled - hides the recommendations column in the top-right
 #                                           of the home screen, next to the book you are
 #                                           currently reading (when fewer than 2 books are open)
-#              hide_home_row2col2_enabled - hides the right column of the middle row on the
-#                                           home screen (usually shows the last viewed
-#                                           collection)
 #              hide_home_row3_enabled     - hides the footer row below "My Books" on the home
 #                                           screen, which often advertises features like the
 #                                           Kobo Store, Pocket, and more
