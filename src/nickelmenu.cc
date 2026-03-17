@@ -82,6 +82,10 @@ void (*MenuTextItem_MenuTextItem)(MenuTextItem*, QWidget* parent, bool checkable
 void (*MenuTextItem_setText)(MenuTextItem*, QString const& text);
 void (*MenuTextItem_registerForTapGestures)(MenuTextItem*);
 
+// Home page widget hiding.
+typedef QWidget HomePageView;
+void (*HomePageView_HomePageView)(HomePageView*, QWidget* parent);
+
 // Selection menu stuff (14622+).
 typedef void SelectionMenuController; // note: items are re-initialized every time the menu is opened
 typedef QWidget SelectionMenuView;
@@ -113,6 +117,9 @@ static struct nh_hook NickelMenuHook[] = {
 
     // bottom nav main menu button injection (15505+)
     {.sym = "_ZN11MainNavViewC1EP7QWidget", .sym_new = "_nm_menu_hook2", .lib = "libnickel.so.1.0.0", .out = nh_symoutptr(MainNavView_MainNavView), .desc = "bottom nav main menu button injection (15505+)", .optional = true}, //libnickel 4.23.15505 * _ZN11MainNavViewC1EP7QWidget
+
+    // home page widget hiding
+    {.sym = "_ZN12HomePageViewC1EP7QWidget", .sym_new = "_nm_homepageview_hook", .lib = "libnickel.so.1.0.0", .out = nh_symoutptr(HomePageView_HomePageView), .desc = "home page widget hiding", .optional = true},
 
     // selection menu injection
     {.sym = "_ZN23SelectionMenuController11addMenuItemEP17SelectionMenuViewP12MenuTextItemPKc", .sym_new = "_nm_menu_hook3", .lib = "libnickel.so.1.0.0", .out = nh_symoutptr(SelectionMenuController_addMenuItem),  .desc = "selection menu injection",                     .optional = true}, //libnickel 4.20.14622 * _ZN23SelectionMenuController11addMenuItemEP17SelectionMenuViewP12MenuTextItemPKc
@@ -207,6 +214,9 @@ static int nm_init() {
     } else if (!ntmp) {
         NM_LOG("... warning: size returned by nm_global_config_items is 0, ignoring for now (this is a bug; it should always have a menu item whether the default, an error, or the actual config)");
     }
+
+    // FORK: always dump log to /mnt/onboard/.kobo/ for debugging (remove this line to revert)
+    nh_dump_log();
 
     return 0;
 }
@@ -479,6 +489,26 @@ extern "C" __attribute__((visibility("default"))) void _nm_menu_hook2(MainNavVie
     _this->ensurePolished();
 
     NM_LOG("Added button.");
+}
+
+extern "C" __attribute__((visibility("default"))) void _nm_homepageview_hook(HomePageView *_this, QWidget *parent) {
+    NM_LOG("HomePageView::HomePageView(%p, %p)", _this, parent);
+    HomePageView_HomePageView(_this, parent);
+
+    const char *hide_widgets[] = {"row1col2", "row2col2", "row3"};
+
+    for (size_t i = 0; i < sizeof(hide_widgets) / sizeof(hide_widgets[0]); i++) {
+        char key[32];
+        snprintf(key, sizeof(key), "hide_home_%s_enabled", hide_widgets[i]);
+        const char *val = nm_global_config_experimental(key);
+        if (!val || strcmp(val, "1"))
+            continue;
+        QWidget *w = _this->findChild<QWidget*>(QString::fromLatin1(hide_widgets[i]));
+        if (w)
+            w->setVisible(false);
+        else
+            NM_LOG("warning: could not find home page widget '%s' to hide (it may not exist on this firmware version)", hide_widgets[i]);
+    }
 }
 
 // _nm_menu_hook4_item gets/sets the current menu item. It must only be called
