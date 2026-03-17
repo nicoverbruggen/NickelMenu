@@ -118,8 +118,8 @@ static struct nh_hook NickelMenuHook[] = {
     // bottom nav main menu button injection (15505+)
     {.sym = "_ZN11MainNavViewC1EP7QWidget", .sym_new = "_nm_menu_hook2", .lib = "libnickel.so.1.0.0", .out = nh_symoutptr(MainNavView_MainNavView), .desc = "bottom nav main menu button injection (15505+)", .optional = true}, //libnickel 4.23.15505 * _ZN11MainNavViewC1EP7QWidget
 
-    // home page widget hiding
-    {.sym = "_ZN12HomePageViewC1EP7QWidget", .sym_new = "_nm_homepageview_hook", .lib = "libnickel.so.1.0.0", .out = nh_symoutptr(HomePageView_HomePageView), .desc = "home page widget hiding", .optional = true},
+    // home page widget hiding (15505+)
+    {.sym = "_ZN12HomePageViewC1EP7QWidget", .sym_new = "_nm_homepageview_hook", .lib = "libnickel.so.1.0.0", .out = nh_symoutptr(HomePageView_HomePageView), .desc = "home page widget hiding (15505+)", .optional = true}, //libnickel 4.23.15505 * _ZN12HomePageViewC1EP7QWidget
 
     // selection menu injection
     {.sym = "_ZN23SelectionMenuController11addMenuItemEP17SelectionMenuViewP12MenuTextItemPKc", .sym_new = "_nm_menu_hook3", .lib = "libnickel.so.1.0.0", .out = nh_symoutptr(SelectionMenuController_addMenuItem),  .desc = "selection menu injection",                     .optional = true}, //libnickel 4.20.14622 * _ZN23SelectionMenuController11addMenuItemEP17SelectionMenuViewP12MenuTextItemPKc
