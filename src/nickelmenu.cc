@@ -522,6 +522,37 @@ extern "C" __attribute__((visibility("default"))) void _nm_menu_hook2(MainNavVie
     NM_LOG("Added button.");
 }
 
+static QWidget *nm_find_direct_child_widget(QWidget *parent, const QString& objectName) {
+    const QObjectList children = parent->children();
+    for (QObject *child : children) {
+        QWidget *childWidget = qobject_cast<QWidget*>(child);
+        if (childWidget && childWidget->objectName() == objectName)
+            return childWidget;
+    }
+
+    return NULL;
+}
+
+static QWidget *nm_find_home_widget(QWidget *root, const char *row_name, const char *widget_name) {
+    const QList<QWidget*> containers = root->findChildren<QWidget*>(QString::fromLatin1("mainContainer"));
+    const QString qRowName = QString::fromLatin1(row_name);
+    const QString qWidgetName = widget_name ? QString::fromLatin1(widget_name) : QString();
+
+    for (QWidget *container : containers) {
+        QWidget *row = nm_find_direct_child_widget(container, qRowName);
+        if (!row)
+            continue;
+        if (!widget_name)
+            return row;
+
+        QWidget *widget = nm_find_direct_child_widget(row, qWidgetName);
+        if (widget)
+            return widget;
+    }
+
+    return NULL;
+}
+
 extern "C" __attribute__((visibility("default"))) void _nm_homepageview_hook(HomePageView *_this, QWidget *parent) {
     NM_LOG("HomePageView::HomePageView(%p, %p)", _this, parent);
     HomePageView_HomePageView(_this, parent);
@@ -531,19 +562,32 @@ extern "C" __attribute__((visibility("default"))) void _nm_homepageview_hook(Hom
     nm_log_widget_tree(_this);
     nh_dump_log();
 
-    const char *hide_widgets[] = {"row1col2", "row3"};
+    const struct {
+        const char *config_key;
+        const char *row_name;
+        const char *widget_name;
+    } hide_rules[] = {
+        {"hide_home_row1col2_enabled", "row1", "row1col2"},
+        {"hide_home_row2col2_enabled", "row2", "row2col2"},
+        {"hide_home_row3_enabled", "row3", NULL},
+    };
 
-    for (size_t i = 0; i < sizeof(hide_widgets) / sizeof(hide_widgets[0]); i++) {
-        char key[32];
-        snprintf(key, sizeof(key), "hide_home_%s_enabled", hide_widgets[i]);
-        const char *val = nm_global_config_experimental(key);
+    for (size_t i = 0; i < sizeof(hide_rules) / sizeof(hide_rules[0]); i++) {
+        const char *val = nm_global_config_experimental(hide_rules[i].config_key);
         if (!val || strcmp(val, "1"))
             continue;
-        QWidget *w = _this->findChild<QWidget*>(QString::fromLatin1(hide_widgets[i]));
+
+        QWidget *w = nm_find_home_widget(_this, hide_rules[i].row_name, hide_rules[i].widget_name);
+
         if (w)
             w->setVisible(false);
+        else if (hide_rules[i].widget_name)
+            NM_LOG("warning: could not find home page widget '%s' under mainContainer.%s to hide (it may not exist on this firmware version)",
+                hide_rules[i].widget_name,
+                hide_rules[i].row_name);
         else
-            NM_LOG("warning: could not find home page widget '%s' to hide (it may not exist on this firmware version)", hide_widgets[i]);
+            NM_LOG("warning: could not find home page row '%s' under mainContainer to hide (it may not exist on this firmware version)",
+                hide_rules[i].row_name);
     }
 }
 
