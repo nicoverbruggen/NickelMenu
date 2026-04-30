@@ -8,7 +8,7 @@ Firmware 5.x is not supported yet.
 
 ## This Fork
 
-This fork adds a small set of Kobo home screen customizations and related debugging on top of upstream NickelMenu.
+This fork adds a small set of Kobo home screen customizations on top of upstream NickelMenu.
 
 The main functional change is support for experimental options to hide specific home screen widgets by their internal object name after `HomePageView` is constructed.
 
@@ -19,8 +19,6 @@ The currently documented options are:
 - `experimental:hide_home_row3_enabled:1`
 
 These options are all constrained within `mainContainer` so other views reusing the same leaf object names are not hidden accidentally. `row1col2` is resolved under `row1`, `row2col2` is resolved under `row2`, and `row3` is hidden as its own section. The `row2col2` option uses a visual-only hide so the layout does not collapse.
-
-This branch also adds extra `HomePageView` debug logging to help identify widgets for further tweaks. When the home page view is constructed, it logs the number of child `QWidget` instances and prints them as a tree, including each widget's class name, object name, and pointer.
 
 In addition, the fork includes updated symbol test coverage for firmware `4.45.23646`.
 
