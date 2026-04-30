@@ -228,14 +228,23 @@
 #     <key>  one of:
 #              hide_home_row1col2_enabled - hides the recommendations column in the top-right
 #                                           of the home screen, next to the book you are
-#                                           currently reading (when fewer than 2 books are open)
+#                                           currently reading (when fewer than 2 books are open),
+#                                           by finding `row1col2` as a direct child under the
+#                                           `row1` section inside `mainContainer`
+#              hide_home_row2col2_enabled - hides the `row2col2` quick tour card on the home
+#                                           screen by finding `row2col2` as a direct child under
+#                                           the `row2` section inside `mainContainer`; this is a
+#                                           visual-only hide which disables the widget and makes
+#                                           it transparent without collapsing its layout space
 #              hide_home_row3_enabled     - hides the footer row below "My Books" on the home
 #                                           screen, which often advertises features like the
-#                                           Kobo Store, Pocket, and more
+#                                           Kobo Store, Pocket, and more, by hiding the `row3`
+#                                           section found inside `mainContainer`
 #     <val>  0 or 1
 #
 #     Example:
 #       experimental:hide_home_row1col2_enabled:1
+#       experimental:hide_home_row2col2_enabled:1
 #       experimental:hide_home_row3_enabled:1
 #
 # For example, you might have a configuration file named "mystuff" like:
