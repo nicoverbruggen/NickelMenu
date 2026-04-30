@@ -1,6 +1,7 @@
 #include <QAction>
 #include <QCoreApplication>
 #include <QFile>
+#include <QGraphicsOpacityEffect>
 #include <QLayout>
 #include <QMenu>
 #include <QMetaProperty>
@@ -553,6 +554,33 @@ static QWidget *nm_find_home_widget(QWidget *root, const char *row_name, const c
     return NULL;
 }
 
+static void nm_hide_home_widget(QWidget *widget, bool keep_layout_space) {
+    if (!keep_layout_space) {
+        NM_LOG("hiding home widget '%s' by setting it invisible",
+            widget->objectName().isEmpty() ? "<unnamed>" : qPrintable(widget->objectName()));
+        widget->setVisible(false);
+        return;
+    }
+
+    QGraphicsOpacityEffect *effect = qobject_cast<QGraphicsOpacityEffect*>(widget->graphicsEffect());
+    if (!effect) {
+        effect = new QGraphicsOpacityEffect(widget);
+        widget->setGraphicsEffect(effect);
+    }
+
+    if (widget->graphicsEffect() != effect) {
+        NM_LOG("warning: could not attach opacity effect to home widget '%s'; visual-only hide may not work as expected",
+            widget->objectName().isEmpty() ? "<unnamed>" : qPrintable(widget->objectName()));
+    } else {
+        NM_LOG("hiding home widget '%s' visually without collapsing layout space",
+            widget->objectName().isEmpty() ? "<unnamed>" : qPrintable(widget->objectName()));
+    }
+
+    effect->setOpacity(0.0);
+    widget->setEnabled(false);
+    widget->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+}
+
 extern "C" __attribute__((visibility("default"))) void _nm_homepageview_hook(HomePageView *_this, QWidget *parent) {
     NM_LOG("HomePageView::HomePageView(%p, %p)", _this, parent);
     HomePageView_HomePageView(_this, parent);
@@ -566,10 +594,11 @@ extern "C" __attribute__((visibility("default"))) void _nm_homepageview_hook(Hom
         const char *config_key;
         const char *row_name;
         const char *widget_name;
+        bool keep_layout_space;
     } hide_rules[] = {
-        {"hide_home_row1col2_enabled", "row1", "row1col2"},
-        {"hide_home_row2col2_enabled", "row2", "row2col2"},
-        {"hide_home_row3_enabled", "row3", NULL},
+        {"hide_home_row1col2_enabled", "row1", "row1col2", false},
+        {"hide_home_row2col2_enabled", "row2", "row2col2", true},
+        {"hide_home_row3_enabled", "row3", NULL, false},
     };
 
     for (size_t i = 0; i < sizeof(hide_rules) / sizeof(hide_rules[0]); i++) {
@@ -580,7 +609,7 @@ extern "C" __attribute__((visibility("default"))) void _nm_homepageview_hook(Hom
         QWidget *w = nm_find_home_widget(_this, hide_rules[i].row_name, hide_rules[i].widget_name);
 
         if (w)
-            w->setVisible(false);
+            nm_hide_home_widget(w, hide_rules[i].keep_layout_space);
         else if (hide_rules[i].widget_name)
             NM_LOG("warning: could not find home page widget '%s' under mainContainer.%s to hide (it may not exist on this firmware version)",
                 hide_rules[i].widget_name,
