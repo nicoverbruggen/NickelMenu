@@ -16,9 +16,10 @@ The currently documented options are:
 
 - `experimental:hide_home_row1col2_enabled:1`
 - `experimental:hide_home_row2col2_enabled:1`
+- `experimental:hide_home_row2_enabled:1`
 - `experimental:hide_home_row3_enabled:1`
 
-These options are all constrained within `mainContainer` so other views reusing the same leaf object names are not hidden accidentally. `row1col2` is resolved under `row1`, `row2col2` is resolved under `row2`, and `row3` is hidden as its own section. The `row2col2` option uses a visual-only hide so the layout does not collapse.
+These options are all constrained within `mainContainer` so other views reusing the same leaf object names are not hidden accidentally. `row1col2` is resolved under `row1`, `row2col2` is resolved under `row2`, and `row3` is hidden as its own section. `hide_home_row2_enabled` hides the full `row2` section, so it also hides `My Books`.
 
 In addition, the fork includes updated symbol test coverage for firmware `4.45.23646`.
 

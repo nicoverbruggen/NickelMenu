@@ -559,6 +559,7 @@ extern "C" __attribute__((visibility("default"))) void _nm_homepageview_hook(Hom
     } hide_rules[] = {
         {"hide_home_row1col2_enabled", "row1", "row1col2", false},
         {"hide_home_row2col2_enabled", "row2", "row2col2", true},
+        {"hide_home_row2_enabled", "row2", NULL, true},
         {"hide_home_row3_enabled", "row3", NULL, false},
     };
 
