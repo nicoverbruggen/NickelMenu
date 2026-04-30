@@ -215,6 +215,8 @@ static int nm_init() {
         NM_LOG("... warning: size returned by nm_global_config_items is 0, ignoring for now (this is a bug; it should always have a menu item whether the default, an error, or the actual config)");
     }
 
+    nh_dump_log();
+
     return 0;
 }
 
@@ -491,6 +493,16 @@ extern "C" __attribute__((visibility("default"))) void _nm_menu_hook2(MainNavVie
 extern "C" __attribute__((visibility("default"))) void _nm_homepageview_hook(HomePageView *_this, QWidget *parent) {
     NM_LOG("HomePageView::HomePageView(%p, %p)", _this, parent);
     HomePageView_HomePageView(_this, parent);
+
+    const QList<QWidget*> widgets = _this->findChildren<QWidget*>();
+    NM_LOG("HomePageView contains %d child QWidgets", widgets.count());
+    for (QWidget *widget : widgets) {
+        const QString objectName = widget->objectName();
+        NM_LOG("HomePageView child QWidget: class=%s objectName=`%s` ptr=%p",
+            widget->metaObject()->className(),
+            objectName.isEmpty() ? "<unnamed>" : qPrintable(objectName),
+            widget);
+    }
 
     const char *hide_widgets[] = {"row1col2", "row3"};
 
@@ -878,4 +890,3 @@ QAction *AbstractNickelMenuController_createAction_before(QAction *before, nm_me
 
     return action;
 }
-
