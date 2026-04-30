@@ -191,6 +191,40 @@ static void nm_menu_item_do(nm_menu_item_t *it, nm_argtransform_t argtransform, 
 // _nm_menu_inject handles the QMenu::aboutToShow signal and injects menu items.
 static void _nm_menu_inject(void *nmc, QMenu *menu, nm_menu_location_t loc, int at);
 
+static void nm_log_widget_tree_children(QWidget *widget, const QString& prefix) {
+    QList<QWidget*> childWidgets;
+    const QObjectList children = widget->children();
+    for (QObject *child : children) {
+        if (QWidget *childWidget = qobject_cast<QWidget*>(child))
+            childWidgets.append(childWidget);
+    }
+
+    for (int i = 0; i < childWidgets.count(); ++i) {
+        QWidget *childWidget = childWidgets.at(i);
+        const bool isLast = i == childWidgets.count() - 1;
+        const QString branch = prefix + (isLast ? "`- " : "|- ");
+        const QString objectName = childWidget->objectName();
+        NM_LOG("HomePageView widget tree: %sclass=%s objectName=`%s` ptr=%p",
+            qPrintable(branch),
+            childWidget->metaObject()->className(),
+            objectName.isEmpty() ? "<unnamed>" : qPrintable(objectName),
+            childWidget);
+        nm_log_widget_tree_children(childWidget, prefix + (isLast ? "   " : "|  "));
+    }
+}
+
+static void nm_log_widget_tree(QWidget *widget) {
+    if (!widget)
+        return;
+
+    const QString objectName = widget->objectName();
+    NM_LOG("HomePageView widget tree: class=%s objectName=`%s` ptr=%p",
+        widget->metaObject()->className(),
+        objectName.isEmpty() ? "<unnamed>" : qPrintable(objectName),
+        widget);
+    nm_log_widget_tree_children(widget, "");
+}
+
 static int nm_init() {
     #ifdef NM_UNINSTALL_CONFIGDIR
     NM_LOG("feature: NM_UNINSTALL_CONFIGDIR: true");
@@ -494,13 +528,7 @@ extern "C" __attribute__((visibility("default"))) void _nm_homepageview_hook(Hom
 
     const QList<QWidget*> widgets = _this->findChildren<QWidget*>();
     NM_LOG("HomePageView contains %d child QWidgets", widgets.count());
-    for (QWidget *widget : widgets) {
-        const QString objectName = widget->objectName();
-        NM_LOG("HomePageView child QWidget: class=%s objectName=`%s` ptr=%p",
-            widget->metaObject()->className(),
-            objectName.isEmpty() ? "<unnamed>" : qPrintable(objectName),
-            widget);
-    }
+    nm_log_widget_tree(_this);
     nh_dump_log();
 
     const char *hide_widgets[] = {"row1col2", "row3"};
