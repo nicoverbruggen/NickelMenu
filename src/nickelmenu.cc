@@ -215,8 +215,6 @@ static int nm_init() {
         NM_LOG("... warning: size returned by nm_global_config_items is 0, ignoring for now (this is a bug; it should always have a menu item whether the default, an error, or the actual config)");
     }
 
-    nh_dump_log();
-
     return 0;
 }
 
@@ -503,6 +501,7 @@ extern "C" __attribute__((visibility("default"))) void _nm_homepageview_hook(Hom
             objectName.isEmpty() ? "<unnamed>" : qPrintable(objectName),
             widget);
     }
+    nh_dump_log();
 
     const char *hide_widgets[] = {"row1col2", "row3"};
 
