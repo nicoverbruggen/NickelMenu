@@ -212,12 +212,32 @@
 #                  label            - sets the label used for the NickelMenu button on 4.23.15505+
 #                  icon             - sets the icon used for the NickelMenu button on 4.23.15505+
 #                  icon_active      - sets the active icon used for the NickelMenu button on 4.23.15505+
+#                  caret            - set to 1 to draw the native popover caret/pointer on the from-scratch
+#                                     main menu popover on 4.23.15505+ (menu-level, NOT per-button or indexed;
+#                                     default off). The caret is aimed at the NickelMenu tab button.
+#                  decoration       - the DecorationPosition (integer) edge the caret is drawn on, used with
+#                                     caret=1 on 4.23.15505+ (menu-level; default 3). Values: 0=top, 1=right,
+#                                     2=left, 3=bottom, 5=none.
+#                  caret_dx         - signed horizontal nudge (pixels) of the caret anchor point (menu-level;
+#                                     default 0; used with caret=1)
+#                  caret_dy         - signed vertical nudge (pixels) of the caret anchor point (menu-level;
+#                                     default 0; used with caret=1)
+#                  offset_x         - signed horizontal nudge (pixels) of the main menu popover on 4.23.15505+
+#                                     (menu-level; default 0; negative moves it left, away from the screen edge)
+#                  offset_y         - signed vertical nudge (pixels) of the main menu popover on 4.23.15505+
+#                                     (menu-level; default 0)
 #
 #     <val>  the option value:
 #              (..)_enabled     -> 0 or 1
 #              (..)_label       -> the label to use instead of the default value
 #              (..)_icon        -> the path passed to QPixmap
 #              (..)_icon_active -> the path passed to QPixmap
+#              (..)_caret       -> 0 or 1 (default 0)
+#              (..)_decoration  -> a DecorationPosition integer (default 3; 0=top 1=right 2=left 3=bottom 5=none)
+#              (..)_caret_dx    -> a signed integer number of pixels (default 0)
+#              (..)_caret_dy    -> a signed integer number of pixels (default 0)
+#              (..)_offset_x    -> a signed integer number of pixels (default 0)
+#              (..)_offset_y    -> a signed integer number of pixels (default 0)
 #
 # For example, you might have a configuration file named "mystuff" like:
 #

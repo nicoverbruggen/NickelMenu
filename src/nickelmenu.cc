@@ -5,6 +5,7 @@
 #include <QMenu>
 #include <QMetaProperty>
 #include <QPushButton>
+#include <QRect>
 #include <QRegularExpression>
 #include <QString>
 #include <QUrl>
@@ -82,6 +83,16 @@ void (*MenuTextItem_MenuTextItem)(MenuTextItem*, QWidget* parent, bool checkable
 void (*MenuTextItem_setText)(MenuTextItem*, QString const& text);
 void (*MenuTextItem_registerForTapGestures)(MenuTextItem*);
 
+// NickelMenu+Librito: NickelTouchMenu decoration (caret/pointer) API. Resolved
+// optionally (15505+); used only when the menu_main_15505_caret option is set.
+// The caret paints only when showDecoration(true) is set AND a target rect is
+// given (paintEvent gates drawDecoration on the flag; drawDecoration aims the
+// caret at the target rect's centre).
+void (*NickelTouchMenu_showDecoration)(NickelTouchMenu*, bool);
+void (*NickelTouchMenu_setTargetRect)(NickelTouchMenu*, QRect const&);
+void (*NickelTouchMenu_setDecorationPosition)(NickelTouchMenu*, DecorationPosition);
+void (*NickelTouchMenu_setDecorationPositionOffset)(NickelTouchMenu*, QPoint const&);
+
 // Selection menu stuff (14622+).
 typedef void SelectionMenuController; // note: items are re-initialized every time the menu is opened
 typedef QWidget SelectionMenuView;
@@ -142,6 +153,12 @@ static struct nh_dlsym NickelMenuDlsym[] = {
     {.name = "_ZN12MenuTextItemC1EP7QWidgetbb",                      .out = nh_symoutptr(MenuTextItem_MenuTextItem),           .desc = "bottom nav main menu button injection (15505+)", .optional = true}, //libnickel 4.23.15505 * _ZN12MenuTextItemC1EP7QWidgetbb
     {.name = "_ZN12MenuTextItem7setTextERK7QString",                 .out = nh_symoutptr(MenuTextItem_setText),                .desc = "bottom nav main menu button injection (15505+)", .optional = true}, //libnickel 4.23.15505 * _ZN12MenuTextItem7setTextERK7QString
     {.name = "_ZN12MenuTextItem22registerForTapGesturesEv",          .out = nh_symoutptr(MenuTextItem_registerForTapGestures), .desc = "bottom nav main menu button injection (15505+)", .optional = true}, //libnickel 4.23.15505 * _ZN12MenuTextItem22registerForTapGesturesEv
+
+    // main menu popover caret/decoration (15505+) — optional; used by menu_main_15505_caret
+    {.name = "_ZN15NickelTouchMenu14showDecorationEb",                           .out = nh_symoutptr(NickelTouchMenu_showDecoration),             .desc = "main menu popover caret (15505+)", .optional = true}, //libnickel 4.23.15505 * _ZN15NickelTouchMenu14showDecorationEb
+    {.name = "_ZN15NickelTouchMenu13setTargetRectERK5QRect",                     .out = nh_symoutptr(NickelTouchMenu_setTargetRect),              .desc = "main menu popover caret (15505+)", .optional = true}, //libnickel 4.23.15505 * _ZN15NickelTouchMenu13setTargetRectERK5QRect
+    {.name = "_ZN15NickelTouchMenu21setDecorationPositionE18DecorationPosition", .out = nh_symoutptr(NickelTouchMenu_setDecorationPosition),       .desc = "main menu popover caret (15505+)", .optional = true}, //libnickel 4.23.15505 * _ZN15NickelTouchMenu21setDecorationPositionE18DecorationPosition
+    {.name = "_ZN15NickelTouchMenu27setDecorationPositionOffsetERK6QPoint",      .out = nh_symoutptr(NickelTouchMenu_setDecorationPositionOffset), .desc = "main menu popover caret (15505+)", .optional = true}, //libnickel 4.23.15505 * _ZN15NickelTouchMenu27setDecorationPositionOffsetERK6QPoint
 
     // selection menu injection (14622+)
     {.name = "_ZN17SelectionMenuView11addMenuItemEP12MenuTextItem", .out = nh_symoutptr(SelectionMenuView_addMenuItem),           .desc = "selection menu injection (14622+)",        .optional = true}, //libnickel 4.20.14622 * _ZN17SelectionMenuView11addMenuItemEP12MenuTextItem
@@ -411,7 +428,27 @@ extern "C" __attribute__((visibility("default"))) void _nm_menu_hook2(MainNavVie
             return;
         }
 
-        NickelTouchMenu_NickelTouchMenu(menu, nullptr, 3);
+        // NickelMenu+Librito: make the from-scratch main-menu popover's pointer
+        // decoration and position configurable. Defaults preserve stock behaviour
+        // (decoration 3 = no caret, zero offset), so this is a no-op unless set.
+        // `decoration` is the DecorationPosition enum Nickel draws its native
+        // popover caret with; offset_x/_y nudge the popup so the caret lands on
+        // the tab button and add a screen-edge margin.
+        const char *nm_deco_s  = nm_global_config_experimental("menu_main_15505_decoration");
+        const char *nm_offx_s  = nm_global_config_experimental("menu_main_15505_offset_x");
+        const char *nm_offy_s  = nm_global_config_experimental("menu_main_15505_offset_y");
+        const char *nm_caret_s = nm_global_config_experimental("menu_main_15505_caret");
+        int  nm_deco  = nm_deco_s ? (int) strtol(nm_deco_s, nullptr, 10) : 3;
+        int  nm_offx  = nm_offx_s ? (int) strtol(nm_offx_s, nullptr, 10) : 0;
+        int  nm_offy  = nm_offy_s ? (int) strtol(nm_offy_s, nullptr, 10) : 0;
+        bool nm_caret = nm_caret_s && nm_caret_s[0] == '1';
+
+        // The caret (drawDecoration) hard-requires a parent widget: its first
+        // check is `if (!d->parent) return`, and it maps the caret anchor point
+        // via parent->mapFromGlobal(). Parent to the top-level window (global ≈
+        // window coords). Without the caret, keep the stock nullptr parent.
+        QWidget *nm_parent = nm_caret ? btn->window() : nullptr;
+        NickelTouchMenu_NickelTouchMenu(menu, nm_parent, nm_deco);
 
         for (size_t i = 0; i < items_n; i++) {
             nm_menu_item_t *it = items[i];
@@ -471,8 +508,40 @@ extern "C" __attribute__((visibility("default"))) void _nm_menu_hook2(MainNavVie
 
         QWidget::connect(menu, &QMenu::aboutToHide, menu, &QWidget::deleteLater);
 
+        // NickelMenu+Librito: enable the native popover caret when requested.
+        // paintEvent only calls drawDecoration if showDecoration(true) was set,
+        // and drawDecoration aims the caret at setTargetRect()'s centre — so both
+        // are required. setDecorationPosition picks the edge (0..4; 5 = none).
+        NM_LOG("librito caret: nm_caret=%d deco=%d haveShowDeco=%d haveSetTgt=%d haveSetPos=%d",
+            (int) nm_caret, nm_deco,
+            NickelTouchMenu_showDecoration != nullptr,
+            NickelTouchMenu_setTargetRect != nullptr,
+            NickelTouchMenu_setDecorationPosition != nullptr);
+        if (nm_caret && NickelTouchMenu_showDecoration && NickelTouchMenu_setTargetRect) {
+            NickelTouchMenu_showDecoration(menu, true);
+            if (NickelTouchMenu_setDecorationPosition)
+                NickelTouchMenu_setDecorationPosition(menu, nm_deco);
+            QRect nm_tgt(btn->mapToGlobal(QPoint(0, 0)), btn->size());
+            NickelTouchMenu_setTargetRect(menu, nm_tgt);
+            // The caret aims at this global point (stored at +0x4c; drawDecoration
+            // maps it into parent coords and adds half the target rect's width
+            // itself), so pass the target's top-left, NOT its centre. caret_dx/_dy
+            // allow config-only nudging of the anchor.
+            if (NickelTouchMenu_setDecorationPositionOffset) {
+                const char *nm_cdx_s = nm_global_config_experimental("menu_main_15505_caret_dx");
+                const char *nm_cdy_s = nm_global_config_experimental("menu_main_15505_caret_dy");
+                int nm_cdx = nm_cdx_s ? (int) strtol(nm_cdx_s, nullptr, 10) : 0;
+                int nm_cdy = nm_cdy_s ? (int) strtol(nm_cdy_s, nullptr, 10) : 0;
+                QPoint nm_anchor = nm_tgt.topLeft() + QPoint(nm_cdx, nm_cdy);
+                NickelTouchMenu_setDecorationPositionOffset(menu, nm_anchor);
+                NM_LOG("librito caret: anchor=(%d,%d)", nm_anchor.x(), nm_anchor.y());
+            }
+            NM_LOG("librito caret: ENABLED deco=%d parent=%p target=(%d,%d %dx%d)",
+                nm_deco, (void*) nm_parent, nm_tgt.x(), nm_tgt.y(), nm_tgt.width(), nm_tgt.height());
+        }
+
         menu->ensurePolished();
-        menu->popup(btn->mapToGlobal(btn->geometry().topRight() - QPoint(0, menu->sizeHint().height())));
+        menu->popup(btn->mapToGlobal(btn->geometry().topRight() - QPoint(0, menu->sizeHint().height()) + QPoint(nm_offx, nm_offy)));
     });
 
     bl->addWidget(btn, 1);
