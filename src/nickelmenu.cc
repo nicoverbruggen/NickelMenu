@@ -540,6 +540,13 @@ extern "C" __attribute__((visibility("default"))) void _nm_menu_hook2(MainNavVie
                 nm_deco, (void*) nm_parent, nm_tgt.x(), nm_tgt.y(), nm_tgt.width(), nm_tgt.height());
         }
 
+        // Optional fixed popover width (pixels). Default (unset/0) keeps the
+        // stock behaviour: auto-sized to the widest menu item.
+        const char *nm_w_s = nm_global_config_experimental("menu_main_15505_width");
+        int nm_w = nm_w_s ? (int) strtol(nm_w_s, nullptr, 10) : 0;
+        if (nm_w > 0)
+            menu->setFixedWidth(nm_w);
+
         menu->ensurePolished();
         menu->popup(btn->mapToGlobal(btn->geometry().topRight() - QPoint(0, menu->sizeHint().height())));
         // Apply the configured nudge AFTER popup(): popup()'s screen-fit

@@ -229,6 +229,8 @@
 #                  offset_y         - signed vertical nudge (pixels) of the main menu popover on 4.23.15505+,
 #                                     applied AFTER the popup is positioned and screen-fitted (menu-level;
 #                                     default 0; negative moves it up)
+#                  width            - fixed width (pixels) of the main menu popover on 4.23.15505+
+#                                     (menu-level; default 0 = auto-size to the widest menu item)
 #
 #     <val>  the option value:
 #              (..)_enabled     -> 0 or 1
