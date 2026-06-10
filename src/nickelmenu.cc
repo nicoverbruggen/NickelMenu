@@ -541,7 +541,17 @@ extern "C" __attribute__((visibility("default"))) void _nm_menu_hook2(MainNavVie
         }
 
         menu->ensurePolished();
-        menu->popup(btn->mapToGlobal(btn->geometry().topRight() - QPoint(0, menu->sizeHint().height()) + QPoint(nm_offx, nm_offy)));
+        menu->popup(btn->mapToGlobal(btn->geometry().topRight() - QPoint(0, menu->sizeHint().height())));
+        // Apply the configured nudge AFTER popup(): popup()'s screen-fit
+        // clamping repositions the menu (the stock popup point is far
+        // off-screen right, so the clamp engages every time), which would
+        // swallow any pre-popup offset. Post-popup move() makes the offsets
+        // relative to the on-screen position the menu actually landed at.
+        if (nm_offx || nm_offy) {
+            menu->move(menu->pos() + QPoint(nm_offx, nm_offy));
+            NM_LOG("librito popup: nudged by (%d,%d) to (%d,%d), size=%dx%d",
+                nm_offx, nm_offy, menu->pos().x(), menu->pos().y(), menu->width(), menu->height());
+        }
     });
 
     bl->addWidget(btn, 1);

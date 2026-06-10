@@ -222,10 +222,13 @@
 #                                     default 0; used with caret=1)
 #                  caret_dy         - signed vertical nudge (pixels) of the caret anchor point (menu-level;
 #                                     default 0; used with caret=1)
-#                  offset_x         - signed horizontal nudge (pixels) of the main menu popover on 4.23.15505+
-#                                     (menu-level; default 0; negative moves it left, away from the screen edge)
-#                  offset_y         - signed vertical nudge (pixels) of the main menu popover on 4.23.15505+
-#                                     (menu-level; default 0)
+#                  offset_x         - signed horizontal nudge (pixels) of the main menu popover on 4.23.15505+,
+#                                     applied AFTER the popup is positioned and screen-fitted, i.e. relative to
+#                                     where the menu visually lands (menu-level; default 0; negative moves it
+#                                     left, away from the screen edge)
+#                  offset_y         - signed vertical nudge (pixels) of the main menu popover on 4.23.15505+,
+#                                     applied AFTER the popup is positioned and screen-fitted (menu-level;
+#                                     default 0; negative moves it up)
 #
 #     <val>  the option value:
 #              (..)_enabled     -> 0 or 1
