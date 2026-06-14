@@ -501,7 +501,15 @@ extern "C" __attribute__((visibility("default"))) void _nm_menu_hook2(MainNavVie
 
             QWidget::connect(ac, &QAction::triggered, menu, &QMenu::hide);
 
-            if (i != items_n-1) {
+            bool has_next_main_item = false;
+            for (size_t j = i + 1; j < items_n; j++) {
+                if (items[j]->loc == NM_MENU_LOCATION(main)) {
+                    has_next_main_item = true;
+                    break;
+                }
+            }
+
+            if (has_next_main_item) {
                 // Stock popovers draw full-width dividers with Nickel's own
                 // separator action (an 8-byte QAction subclass, same pattern as
                 // the pre-15505 main menu above); QMenu::addSeparator() insets
