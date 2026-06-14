@@ -593,9 +593,13 @@ extern "C" __attribute__((visibility("default"))) void _nm_menu_hook2(MainNavVie
         if (nm_fsep) {
             // The widget's true edge sits outside the painted frame, so a
             // separate inset (pixels from each edge) lines the dividers up
-            // with the visible border. Default 0 = the widget's full width.
+            // with the visible border.
             const char *nm_si_s = nm_global_config_experimental("menu_main_15505_separator_inset");
-            int nm_si = nm_si_s ? (int) strtol(nm_si_s, nullptr, 10) : 0;
+            int nm_si = nm_si_s ? (int) strtol(nm_si_s, nullptr, 10) : 8;
+            if (nm_si < 0)
+                nm_si = 0;
+            if (nm_si * 2 > menu->width())
+                nm_si = menu->width() / 2;
             int nm_fixed = 0;
             for (QAction *nm_a : menu->actions()) {
                 if (!nm_a->isSeparator())

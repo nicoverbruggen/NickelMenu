@@ -237,7 +237,7 @@
 #                                     (menu-level; default on)
 #                  separator_inset  - pixels each divider is inset from the popover edges when
 #                                     flush_separators is 1; use to line the dividers up with the painted
-#                                     border (menu-level; default 0)
+#                                     border (menu-level; default 8)
 #                  italic           - set to 1 to render the main menu popover's items in italics on
 #                                     4.23.15505+ (menu-level; default 0, using the normal menu font)
 #
@@ -254,7 +254,7 @@
 #              (..)_offset_y    -> a signed integer number of pixels (default 0)
 #              (..)_width       -> an integer number of pixels (default 0, auto-size)
 #              (..)_flush_separators -> 0 or 1 (default 1)
-#              (..)_separator_inset -> an integer number of pixels (default 0)
+#              (..)_separator_inset -> an integer number of pixels (default 8)
 #              (..)_italic      -> 0 or 1 (default 0)
 #
 #     The following experimental options hide elements on the home screen by
