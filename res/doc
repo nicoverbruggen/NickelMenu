@@ -8,6 +8,17 @@
 # it has a lot of error checking, and a failsafe mechanism which automatically
 # uninstalls it as a last resort.
 #
+# Qt6 builds use Kobo.tgz on firmware 5.18 and 6.0. Qt5 builds use KoboRoot.tgz
+# on firmware 4.x. These binaries are not interchangeable.
+# Missing dependencies disable only the affected menu, action or output.
+# Unsupported actions return an error; chain_failure can handle it.
+# Extras, Bluetooth, Pocket and awards are unavailable in the Qt6 build.
+# Settings and navigation actions check private code layouts before use.
+# These checks use symbols and memory, not a firmware version allowlist.
+# On Qt6, the library creates this doc on user storage at first startup
+# without replacing existing files. Remove an explicit uninstall file before
+# reinstalling. Physical-device installation still needs testing.
+#
 # Place your configuration files in this folder. They can be named anything, and
 # should consist of multiple lines either starting with # for a comment, or in
 # one of the the following formats (spaces around fields are ignored):

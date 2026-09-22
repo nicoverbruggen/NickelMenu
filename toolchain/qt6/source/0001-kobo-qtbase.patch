@@ -1,0 +1,3637 @@
+Subject: [PATCH] Reproduce Kobo's Qt 6.5.2 qtbase changes
+
+Extracted from kobolabs/Kobo-Reader commit
+7a762964e7fa71ad8e8df50dd1b6eee721a43217, packages-v5.
+Base: official qtbase-everywhere-src-6.5.2.tar.xz.
+Includes changes carried by Kobo; this is not an attribution of authorship.
+Upstream-Status: Inappropriate [Kobo firmware source compatibility]
+
+diff --git a/.tag b/.tag
+index 1af39ca..76d8daf 100644
+--- a/.tag
++++ b/.tag
+@@ -1 +1 @@
+-af457a9f0f7eb1a2a7d11f495da508faab91a442
++d03daaeed4400b3e3804cf971400ee4ffdaf409b
+diff --git a/cmake/qt.toolchain.cmake.in b/cmake/qt.toolchain.cmake.in
+index 15cf7a4..03de928 100644
+--- a/cmake/qt.toolchain.cmake.in
++++ b/cmake/qt.toolchain.cmake.in
+@@ -67,8 +67,8 @@ get_filename_component(QT_TOOLCHAIN_RELOCATABLE_CMAKE_DIR "${CMAKE_CURRENT_LIST_
+ # Instead of collapsing the search prefix (which is the case when one is a subdir of the other),
+ # it concatenates them creating an invalid path. Workaround it by setting the root path to the
+ # Qt install prefix, and the prefix path to the lib/cmake subdir.
+-list(PREPEND CMAKE_PREFIX_PATH "${QT_TOOLCHAIN_RELOCATABLE_CMAKE_DIR}")
+-list(PREPEND CMAKE_FIND_ROOT_PATH "${QT_TOOLCHAIN_RELOCATABLE_INSTALL_PREFIX}")
++#list(PREPEND CMAKE_PREFIX_PATH "${QT_TOOLCHAIN_RELOCATABLE_CMAKE_DIR}")
++#list(PREPEND CMAKE_FIND_ROOT_PATH "${QT_TOOLCHAIN_RELOCATABLE_INSTALL_PREFIX}")
+ 
+ # Let CMake load our custom platform modules.
+ # CMake-provided platform modules take precedence.
+diff --git b/mkspecs/common/linux-kobo.conf b/mkspecs/common/linux-kobo.conf
+new file mode 100644
+index 0000000..e826a1a
+--- /dev/null
++++ b/mkspecs/common/linux-kobo.conf
+@@ -0,0 +1,9 @@
++QMAKE_CXXFLAGS += -std=c++17
++QMAKE_LFLAGS += -std=c++17
++QMAKE_OBJCXXFLAGS_PRECOMPILE += -std=c++17
++
++INCLUDEPATH += $$(KOBO_BUILD_DIR)/icu/icu4c/source/common $$(KOBO_BUILD_DIR)/icu/icu4c/source/i18n
++QMAKE_LIBS = -L$$(KOBO_BUILD_DIR)/icu4c-x86/lib
++
++QT_LFLAGS_SQLITE = -lsqlcipher -lcrypto -lz
++QT_CFLAGS_SQLITE = -I/usr/include/sqlcipher
+diff --git a/mkspecs/features/qt.prf b/mkspecs/features/qt.prf
+index 114c729..d099755 100644
+--- a/mkspecs/features/qt.prf
++++ b/mkspecs/features/qt.prf
+@@ -164,7 +164,7 @@ import_plugins {
+             plug_name = $$QMAKE_PREFIX_STATICLIB$${plug}$$qtPlatformTargetSuffix($$config_variable).$$QMAKE_EXTENSION_STATICLIB
+             plug_path = $$eval(QT_PLUGIN.$${plug}.PATH)
+             isEmpty(plug_path): \
+-                plug_path = $$[QT_INSTALL_PLUGINS/get]
++                plug_path = $$[QT_INSTALL_PLUGINS]
+             LIBS += $$plug_path/$$plug_type/$$plug_name
+         } else {
+             LIBS += -l$${plug}$$qtPlatformTargetSuffix(CONFIG)
+@@ -320,8 +320,8 @@ for(ever) {
+ # static builds: link qml import plugins into the target.
+ contains(all_qt_module_deps, qml): \
+         qtConfig(static):import_plugins:!host_build:!no_import_scan {
+-    exists($$[QT_INSTALL_QML/get]): \
+-        QMLPATHS *= $$[QT_INSTALL_QML/get]
++    exists($$[QT_INSTALL_QML]): \
++        QMLPATHS *= $$[QT_INSTALL_QML]
+ 
+     # run qmlimportscanner
+     qtPrepareLibExecTool(QMLIMPORTSCANNER, qmlimportscanner, , system)
+diff --git a/mkspecs/features/qt_functions.prf b/mkspecs/features/qt_functions.prf
+index f1371c8..84cbf4a 100644
+--- a/mkspecs/features/qt_functions.prf
++++ b/mkspecs/features/qt_functions.prf
+@@ -95,7 +95,7 @@ defineTest(qtPrepareTool) {
+     cmd = $$eval(QT_TOOL.$${2}.binary)
+     isEmpty(cmd) {
+         isEmpty(5) {
+-            instloc = $$[QT_HOST_BINS]
++            instloc = $$[QT_HOST_BINS/get]
+         } else {
+             instloc = $$5
+         }
+@@ -140,7 +140,7 @@ defineTest(qtPrepareTool) {
+ # Forwards its arguments to qtPrepareTool but defaults the installation location to
+ # $$[QT_HOST_LIBEXECS]
+ defineTest(qtPrepareLibExecTool) {
+-    isEmpty(instloc): instloc = "$$[QT_HOST_LIBEXECS]"
++    isEmpty(instloc): instloc = "$$[QT_HOST_LIBEXECS/get]"
+     qtPrepareTool($$1, $$2, $$3, $$4, $$instloc)
+ }
+ 
+diff --git b/mkspecs/linux-armv7-fusion-g++/qmake.conf b/mkspecs/linux-armv7-fusion-g++/qmake.conf
+new file mode 100644
+index 0000000..d88c9ac
+--- /dev/null
++++ b/mkspecs/linux-armv7-fusion-g++/qmake.conf
+@@ -0,0 +1,52 @@
++#
++# Kobo qmake configuration
++#
++
++MAKEFILE_GENERATOR      = UNIX
++CONFIG                 += incremental gdb_dwarf_index
++QMAKE_INCREMENTAL_STYLE = sublib
++
++include(../common/linux.conf)
++include(../common/gcc-base-unix.conf)
++include(../common/g++-unix.conf)
++
++#QMAKE_CFLAGS_RELEASE   = -O3 -march=armv7-a -mfpu=neon -mfloat-abi=hard -D__arm__ -D__ARM_NEON__ -fPIC -fno-omit-frame-pointer -funwind-tables -Wl,--no-merge-exidx-entries
++QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO = $$QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO -g
++QMAKE_CFLAGS                += $$(OE_QMAKE_CFLAGS)
++QMAKE_CXXFLAGS              += $$(OE_QMAKE_CXXFLAGS) -Wno-unused-parameter
++QMAKE_LFLAGS                += $$(OE_QMAKE_LDFLAGS)
++
++QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CFLAGS_RELEASE -std=c++17
++QMAKE_CXXFLAGS_RELEASE_WITH_DEBUGINFO = $$QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO -stdlib=libc++ -std=c++17
++
++# tc settings from g++-base.conf
++QMAKE_CC       = $$(OE_QMAKE_CC)
++QMAKE_CXX      = $$(OE_QMAKE_CXX)
++QMAKE_LINK         = $$(OE_QMAKE_LINK)
++QMAKE_LINK_SHLIB   = $$(OE_QMAKE_LINK)
++QMAKE_AR_LTCG      = $$(OE_QMAKE_AR_LTCG) cqs
++#
++## modifications to linux.conf
++#QMAKE_NM                = arm-fslc-linux-gnueabi-gcc-nm -P
++QMAKE_AR              = $$(OE_QMAKE_AR) cqs
++QMAKE_STRIP           = $$(OE_QMAKE_STRIP)
++QMAKE_OBJCOPY         = $$(OE_QMAKE_OBJCOPY)
++
++QMAKE_LFLAGS_SHLIB += -Wl,-z,relro -Wl,-z,now
++QMAKE_LINK_C       = $$(OE_QMAKE_LINK)
++QMAKE_LINK_C_SHLIB = $$(OE_QMAKE_LINK)
++
++include(../oe-device-extra.pri)
++
++load(device_config)
++load(qt_config)
++count(QMAKE_AR, 1): QMAKE_AR = $$[QT_HOST_PREFIX]/usr/bin/arm-fslc-linux-gnueabi/arm-fslc-linux-gnueabi-gcc-ar cqs
++count(QMAKE_AR_LTCG, 1): QMAKE_AR_LTCG = $$[QT_HOST_PREFIX]/usr/bin/arm-fslc-linux-gnueabi/arm-fslc-linux-gnueabi-gcc-ar cqs
++isEmpty(QMAKE_STRIP): QMAKE_STRIP = $$[QT_HOST_PREFIX]/usr/bin/arm-fslc-linux-gnueabi/arm-fslc-linux-gnueabi-strip
++isEmpty(QMAKE_OBJCOPY): QMAKE_OBJCOPY = $$[QT_HOST_PREFIX]/usr/bin/arm-fslc-linux-gnueabi/arm-fslc-linux-gnueabi-objcopy
++isEmpty(QMAKE_CC): QMAKE_CC = $$[QT_HOST_PREFIX]/usr/bin/arm-fslc-linux-gnueabi/arm-fslc-linux-gnueabi-gcc  -mthumb -mfpu=neon -mfloat-abi=hard -mcpu=cortex-a9  --sysroot=$$[QT_SYSROOT]
++isEmpty(QMAKE_CFLAGS): QMAKE_CFLAGS =   -O2 -pipe -g -feliminate-unused-debug-types 
++isEmpty(QMAKE_CXX): QMAKE_CXX = $$[QT_HOST_PREFIX]/usr/bin/arm-fslc-linux-gnueabi/arm-fslc-linux-gnueabi-g++  -mthumb -mfpu=neon -mfloat-abi=hard -mcpu=cortex-a9  --sysroot=$$[QT_SYSROOT]
++isEmpty(QMAKE_CXXFLAGS): QMAKE_CXXFLAGS =   -O2 -pipe -g -feliminate-unused-debug-types  -fvisibility-inlines-hidden
++isEmpty(QMAKE_LINK): QMAKE_LINK = $$[QT_HOST_PREFIX]/usr/bin/arm-fslc-linux-gnueabi/arm-fslc-linux-gnueabi-g++  -mthumb -mfpu=neon -mfloat-abi=hard -mcpu=cortex-a9  --sysroot=$$[QT_SYSROOT]
++isEmpty(QMAKE_LFLAGS): QMAKE_LFLAGS = -Wl,-O1 -Wl,--hash-style=gnu -Wl,--as-needed  -Wl,-z,relro,-z,now 
+diff --git b/mkspecs/linux-armv7-fusion-g++/qplatformdefs.h b/mkspecs/linux-armv7-fusion-g++/qplatformdefs.h
+new file mode 100644
+index 0000000..29ee5dd
+--- /dev/null
++++ b/mkspecs/linux-armv7-fusion-g++/qplatformdefs.h
+@@ -0,0 +1,42 @@
++/****************************************************************************
++**
++** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
++** Contact: http://www.qt-project.org/legal
++**
++** This file is part of the qmake spec of the Qt Toolkit.
++**
++** $QT_BEGIN_LICENSE:LGPL$
++** Commercial License Usage
++** Licensees holding valid commercial Qt licenses may use this file in
++** accordance with the commercial license agreement provided with the
++** Software or, alternatively, in accordance with the terms contained in
++** a written agreement between you and Digia.  For licensing terms and
++** conditions see http://qt.digia.com/licensing.  For further information
++** use the contact form at http://qt.digia.com/contact-us.
++**
++** GNU Lesser General Public License Usage
++** Alternatively, this file may be used under the terms of the GNU Lesser
++** General Public License version 2.1 as published by the Free Software
++** Foundation and appearing in the file LICENSE.LGPL included in the
++** packaging of this file.  Please review the following information to
++** ensure the GNU Lesser General Public License version 2.1 requirements
++** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
++**
++** In addition, as a special exception, Digia gives you certain additional
++** rights.  These rights are described in the Digia Qt LGPL Exception
++** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
++**
++** GNU General Public License Usage
++** Alternatively, this file may be used under the terms of the GNU
++** General Public License version 3.0 as published by the Free Software
++** Foundation and appearing in the file LICENSE.GPL included in the
++** packaging of this file.  Please review the following information to
++** ensure the GNU General Public License version 3.0 requirements will be
++** met: http://www.gnu.org/copyleft/gpl.html.
++**
++**
++** $QT_END_LICENSE$
++**
++****************************************************************************/
++
++#include "../linux-g++/qplatformdefs.h"
+diff --git b/mkspecs/linux-g++-kobo/qmake.conf b/mkspecs/linux-g++-kobo/qmake.conf
+new file mode 100644
+index 0000000..86c6074
+--- /dev/null
++++ b/mkspecs/linux-g++-kobo/qmake.conf
+@@ -0,0 +1,16 @@
++#
++# qmake configuration for linux-g++
++#
++
++MAKEFILE_GENERATOR      = UNIX
++CONFIG                 += incremental gdb_dwarf_index
++QMAKE_INCREMENTAL_STYLE = sublib
++
++include(../common/linux.conf)
++include(../common/gcc-base-unix.conf)
++include(../common/g++-unix.conf)
++include(../common/linux-kobo.conf)
++
++QT_CONFIG += gstreamer-1.0
++
++load(qt_config)
+diff --git b/mkspecs/linux-g++-kobo/qplatformdefs.h b/mkspecs/linux-g++-kobo/qplatformdefs.h
+new file mode 100644
+index 0000000..29ee5dd
+--- /dev/null
++++ b/mkspecs/linux-g++-kobo/qplatformdefs.h
+@@ -0,0 +1,42 @@
++/****************************************************************************
++**
++** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
++** Contact: http://www.qt-project.org/legal
++**
++** This file is part of the qmake spec of the Qt Toolkit.
++**
++** $QT_BEGIN_LICENSE:LGPL$
++** Commercial License Usage
++** Licensees holding valid commercial Qt licenses may use this file in
++** accordance with the commercial license agreement provided with the
++** Software or, alternatively, in accordance with the terms contained in
++** a written agreement between you and Digia.  For licensing terms and
++** conditions see http://qt.digia.com/licensing.  For further information
++** use the contact form at http://qt.digia.com/contact-us.
++**
++** GNU Lesser General Public License Usage
++** Alternatively, this file may be used under the terms of the GNU Lesser
++** General Public License version 2.1 as published by the Free Software
++** Foundation and appearing in the file LICENSE.LGPL included in the
++** packaging of this file.  Please review the following information to
++** ensure the GNU Lesser General Public License version 2.1 requirements
++** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
++**
++** In addition, as a special exception, Digia gives you certain additional
++** rights.  These rights are described in the Digia Qt LGPL Exception
++** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
++**
++** GNU General Public License Usage
++** Alternatively, this file may be used under the terms of the GNU
++** General Public License version 3.0 as published by the Free Software
++** Foundation and appearing in the file LICENSE.GPL included in the
++** packaging of this file.  Please review the following information to
++** ensure the GNU General Public License version 3.0 requirements will be
++** met: http://www.gnu.org/copyleft/gpl.html.
++**
++**
++** $QT_END_LICENSE$
++**
++****************************************************************************/
++
++#include "../linux-g++/qplatformdefs.h"
+diff --git b/mkspecs/linux-oe-g++/qmake.conf b/mkspecs/linux-oe-g++/qmake.conf
+new file mode 100644
+index 0000000..99ff374
+--- /dev/null
++++ b/mkspecs/linux-oe-g++/qmake.conf
+@@ -0,0 +1,38 @@
++#
++# qmake configuration for linux-g++ with modifications for building with OpenEmbedded
++#
++
++MAKEFILE_GENERATOR = UNIX
++CONFIG += incremental
++QMAKE_INCREMENTAL_STYLE = sublib
++
++include(../common/linux.conf)
++
++QMAKE_AR              = $$(OE_QMAKE_AR) cqs
++QMAKE_STRIP           = $$(OE_QMAKE_STRIP)
++QMAKE_OBJCOPY         = $$(OE_QMAKE_OBJCOPY)
++
++include(../common/gcc-base-unix.conf)
++
++# *FLAGS from gcc-base.conf
++QMAKE_CFLAGS                += $$(OE_QMAKE_CFLAGS)
++QMAKE_CXXFLAGS              += $$(OE_QMAKE_CXXFLAGS)
++QMAKE_LFLAGS                += $$(OE_QMAKE_LDFLAGS)
++
++include(../common/g++-unix.conf)
++
++# tc settings from g++-base.conf
++QMAKE_CC       = $$(OE_QMAKE_CC)
++QMAKE_CXX      = $$(OE_QMAKE_CXX)
++
++QMAKE_LINK         = $$(OE_QMAKE_LINK)
++QMAKE_LINK_SHLIB   = $$(OE_QMAKE_LINK)
++QMAKE_LINK_C       = $$(OE_QMAKE_LINK)
++QMAKE_LINK_C_SHLIB = $$(OE_QMAKE_LINK)
++
++QMAKE_AR_LTCG      = $$(OE_QMAKE_AR_LTCG) cqs
++
++include(../oe-device-extra.pri)
++
++load(device_config)
++load(qt_config)
+diff --git b/mkspecs/linux-oe-g++/qplatformdefs.h b/mkspecs/linux-oe-g++/qplatformdefs.h
+new file mode 100644
+index 0000000..5d22fb4
+--- /dev/null
++++ b/mkspecs/linux-oe-g++/qplatformdefs.h
+@@ -0,0 +1 @@
++#include "../linux-g++/qplatformdefs.h"
+diff --git b/mkspecs/oe-device-extra.pri b/mkspecs/oe-device-extra.pri
+new file mode 100644
+index 0000000..e69de29
+diff --git a/src/corelib/global/qglobal.cpp b/src/corelib/global/qglobal.cpp
+index cddf446..c6c98bc 100644
+--- a/src/corelib/global/qglobal.cpp
++++ b/src/corelib/global/qglobal.cpp
+@@ -158,7 +158,8 @@ void qAbort()
+     // Tell the compiler the application has stopped.
+     Q_UNREACHABLE_IMPL();
+ #else // !Q_OS_WIN
+-    std::abort();
++    int* p = nullptr;
++    *p = 0;
+ #endif
+ }
+ 
+diff --git a/src/corelib/global/qlibraryinfo.cpp b/src/corelib/global/qlibraryinfo.cpp
+index 715bda4..3e9314b 100644
+--- a/src/corelib/global/qlibraryinfo.cpp
++++ b/src/corelib/global/qlibraryinfo.cpp
+@@ -92,7 +92,12 @@ static QSettings *findConfiguration()
+     if (QLibraryInfoPrivate::qtconfManualPath)
+         return new QSettings(*QLibraryInfoPrivate::qtconfManualPath, QSettings::IniFormat);
+ 
+-    QString qtconfig = QStringLiteral(":/qt/etc/qt.conf");
++    QByteArray config = getenv("OE_QMAKE_QTCONF_PATH");
++    QString qtconfig = QFile::decodeName(config);
++    if (QFile::exists(qtconfig))
++        return new QSettings(qtconfig, QSettings::IniFormat);
++
++    qtconfig = QStringLiteral(":/qt/etc/qt.conf");
+     if (QFile::exists(qtconfig))
+         return new QSettings(qtconfig, QSettings::IniFormat);
+ #ifdef Q_OS_DARWIN
+diff --git a/src/corelib/global/qnamespace.h b/src/corelib/global/qnamespace.h
+index 8a2769a..25167f7 100644
+--- a/src/corelib/global/qnamespace.h
++++ b/src/corelib/global/qnamespace.h
+@@ -414,6 +414,53 @@ namespace Qt {
+         WA_ContentsMarginsRespectsSafeArea = 130,
+ 
+         WA_StyleSheetTarget = 131,
++        
++        //was 128 in qt5, check if hardcoded value somwehere causes issues
++        WA_KoboEpdFlagsStart = 160,
++        WA_KoboEpdScreenFlush = 160,
++        WA_KoboEpdUpdateModeHeuristic,
++        WA_KoboEpdUpdateModePartial,
++        WA_KoboEpdUpdateModeFull,
++        WA_KoboEpdWfModeAutomatic,
++        WA_KoboEpdWfModeDirect,
++        WA_KoboEpdWfModeGC16,
++        WA_KoboEpdWfModeGC4,
++        WA_KoboEpdWfModeA2,
++        WA_KoboEpdWfModeGL16,
++        WA_KoboEpdWfModeGLR32,
++        WA_KoboEpdWfModeGLD16,
++        WA_KoboEpdWfModeGCK16,
++        WA_KoboEpdWfModeGLK16,
++
++        WA_KoboEpdFlagInvert,
++        WA_KoboEpdFlagMonochrome,
++        WA_KoboEpdFlagUseAAD,
++        WA_KoboEpdFlagUseDitheringY1,               // candidate for removal/replacement - used only in qnamespace, KoboScreenAllWinner, KoboScreenNXP
++        WA_KoboEpdFlagUseDitheringY4,               // candidate for removal/replacement - used only in qnamespace, KoboScreenAllWinner, KoboScreenNXP
++        WA_KoboEpdFlagUseDitheringFloydSteinberg,   // candidate for removal/replacement - used only in qnamespace, KoboScreenNXP
++        WA_KoboEpdFlagUseDitheringAtkinson,         // candidate for removal/replacement - used only in qnamespace, KoboScreenNXP
++        WA_KoboEpdFlagUseDitheringOrdered,
++        WA_KoboEpdFlagExpandToScreenGeometry,
++        WA_KoboEpdFlagCanCollide,
++
++        WA_KoboDontFlushBackingStore,
++        WA_KoboEpdFlagForceA2OutputWhite,
++        WA_KoboEpdWfModeGCC16,      // the above flags above cannot be shifted or reordered due to some hidden dependency, so need to add new WFM here
++
++        WA_KoboEpdFlagCfaSkip,
++        WA_KoboEpdFlagCfaNormal,
++        WA_KoboEpdFlagCfaS4,
++        WA_KoboEpdFlagCfaS7,
++
++        WA_KoboEpdWfModeGLRC16,
++        WA_KoboEpdFlagCfaS9,
++        WA_KoboEpdFlagCfaG0,
++        WA_KoboEpdFlagCfaG1,
++        WA_KoboEpdFlagCfaG2,
++        WA_KoboEpdFlagDarkMode,
++        WA_KoboEpdWfModeAutoImage,
++        WA_KoboEpdWfModeAutoText,
++        WA_KoboEpdIgnoreBlit,
+ 
+         // Add new attributes before this line
+         WA_AttributeCount
+diff --git a/src/corelib/kernel/qcoreevent.h b/src/corelib/kernel/qcoreevent.h
+index 536c5ab..63b1526 100644
+--- a/src/corelib/kernel/qcoreevent.h
++++ b/src/corelib/kernel/qcoreevent.h
+@@ -286,6 +286,7 @@ public:
+ 
+         // 512 reserved for Qt Jambi's MetaCall event
+         // 513 reserved for Qt Jambi's DeleteOnMainThread event
++        Painted = 425,
+ 
+         User = 1000,                            // first user event id
+         MaxUser = 65535                         // last user event id
+diff --git a/src/gui/CMakeLists.txt b/src/gui/CMakeLists.txt
+index 0e04b72..98bbb8d 100644
+--- a/src/gui/CMakeLists.txt
++++ b/src/gui/CMakeLists.txt
+@@ -475,7 +475,7 @@ else()
+     set(atspi_accessibility OFF)
+ endif()
+ 
+-qt_internal_extend_target(Gui CONDITION atspi_accessibility
++qt_internal_extend_target(Gui
+     SOURCES
+         accessible/linux/atspiadaptor.cpp accessible/linux/atspiadaptor_p.h
+         accessible/linux/dbusconnection.cpp accessible/linux/dbusconnection_p.h
+diff --git a/src/gui/accessible/linux/atspiadaptor.cpp b/src/gui/accessible/linux/atspiadaptor.cpp
+index e6ada2c..0a8e225 100644
+--- a/src/gui/accessible/linux/atspiadaptor.cpp
++++ b/src/gui/accessible/linux/atspiadaptor.cpp
+@@ -34,6 +34,13 @@
+ #define ATSPI_COORD_TYPE_PARENT 2
+ #endif
+ 
++// ATSPI_*_VERSION defines were added in libatspi 2.50,
++// as was the AtspiLive enum; define values here for older versions
++#if !defined(ATSPI_MAJOR_VERSION) || !defined(ATSPI_MINOR_VERSION) || ATSPI_MAJOR_VERSION < 2 || ATSPI_MINOR_VERSION < 50
++#define ATSPI_LIVE_POLITE 1
++#define ATSPI_LIVE_ASSERTIVE 2
++#endif
++
+ QT_BEGIN_NAMESPACE
+ 
+ using namespace Qt::StringLiterals;
+@@ -41,11 +48,12 @@ using namespace Qt::StringLiterals;
+ Q_LOGGING_CATEGORY(lcAccessibilityAtspi, "qt.accessibility.atspi")
+ Q_LOGGING_CATEGORY(lcAccessibilityAtspiCreation, "qt.accessibility.atspi.creation")
+ 
+-AtSpiAdaptor::AtSpiAdaptor(DBusConnection *connection, QObject *parent)
++AtSpiAdaptor::AtSpiAdaptor(QAtSpiDBusConnection *connection, QObject *parent)
+     : QDBusVirtualObject(parent), m_dbus(connection)
+     , sendFocus(0)
+     , sendObject(0)
+     , sendObject_active_descendant_changed(0)
++    , sendObject_announcement(0)
+     , sendObject_attributes_changed(0)
+     , sendObject_bounds_changed(0)
+     , sendObject_children_changed(0)
+@@ -115,6 +123,15 @@ AtSpiAdaptor::AtSpiAdaptor(DBusConnection *connection, QObject *parent)
+ 
+ AtSpiAdaptor::~AtSpiAdaptor()
+ {
++    m_dbus->connection().disconnect("org.a11y.atspi.Registry"_L1, "/org/a11y/atspi/registry"_L1,
++        "org.a11y.atspi.Registry"_L1, "EventListenerRegistered"_L1, this,
++        SLOT(eventListenerRegistered(QString,QString)));
++
++    m_dbus->connection().disconnect("org.a11y.atspi.Registry"_L1, "/org/a11y/atspi/registry"_L1,
++            "org.a11y.atspi.Registry"_L1, "EventListenerDeregistered"_L1, this,
++            SLOT(eventListenerDeregistered(QString,QString)));
++
++    m_dbus = nullptr;
+ }
+ 
+ /*!
+@@ -669,6 +686,8 @@ void AtSpiAdaptor::setBitFlag(const QString &flag)
+             if (false) {
+             } else if (right.startsWith("ActiveDescendantChanged"_L1)) {
+                 sendObject_active_descendant_changed = 1;
++            } else if (right.startsWith("Announcement"_L1)) {
++                sendObject_announcement = 1;
+             } else if (right.startsWith("AttributesChanged"_L1)) {
+                 sendObject_attributes_changed = 1;
+             } else if (right.startsWith("BoundsChanged"_L1)) {
+@@ -920,6 +939,26 @@ void AtSpiAdaptor::notifyStateChange(QAccessibleInterface *interface, const QStr
+     sendDBusSignal(path, ATSPI_DBUS_INTERFACE_EVENT_OBJECT ""_L1, "StateChanged"_L1, stateArgs);
+ }
+ 
++void AtSpiAdaptor::sendAnnouncement(QAccessibleAnnouncementEvent *event)
++{
++    QAccessibleInterface *iface = event->accessibleInterface();
++    if (!iface) {
++        qCWarning(lcAccessibilityAtspi, "Announcement event has no accessible set.");
++        return;
++    }
++    if (!iface->isValid()) {
++        qCWarning(lcAccessibilityAtspi) << "Announcement event with invalid accessible: " << iface;
++        return;
++    }
++
++    const QString path = pathForInterface(iface);
++    const QString message = event->message();
++    const QAccessible::AnnouncementPriority prio = event->priority();
++    const int politeness = (prio == QAccessible::AnnouncementPriority::Assertive) ? ATSPI_LIVE_ASSERTIVE : ATSPI_LIVE_POLITE;
++
++    const QVariantList args = packDBusSignalArguments(QString(), politeness, 0, QVariant::fromValue(QDBusVariant(message)));
++    sendDBusSignal(path, ATSPI_DBUS_INTERFACE_EVENT_OBJECT ""_L1, "Announcement"_L1, args);
++}
+ 
+ /*!
+     This function gets called when Qt notifies about accessibility updates.
+@@ -994,6 +1033,14 @@ void AtSpiAdaptor::notify(QAccessibleEvent *event)
+             sendFocusChanged(event->accessibleInterface());
+         break;
+     }
++
++    case QAccessible::Announcement: {
++        if (sendObject || sendObject_announcement) {
++            QAccessibleAnnouncementEvent *announcementEvent = static_cast<QAccessibleAnnouncementEvent*>(event);
++            sendAnnouncement(announcementEvent);
++        }
++        break;
++    }
+     case QAccessible::TextInserted:
+     case QAccessible::TextRemoved:
+     case QAccessible::TextUpdated: {
+diff --git a/src/gui/accessible/linux/atspiadaptor_p.h b/src/gui/accessible/linux/atspiadaptor_p.h
+index c9877f0..d54fc08 100644
+--- a/src/gui/accessible/linux/atspiadaptor_p.h
++++ b/src/gui/accessible/linux/atspiadaptor_p.h
+@@ -39,7 +39,7 @@ class AtSpiAdaptor :public QDBusVirtualObject
+     Q_OBJECT
+ 
+ public:
+-    explicit AtSpiAdaptor(DBusConnection *connection, QObject *parent = nullptr);
++    explicit AtSpiAdaptor(QAtSpiDBusConnection *connection, QObject *parent = nullptr);
+     ~AtSpiAdaptor();
+ 
+     void registerApplication();
+@@ -86,6 +86,8 @@ private:
+ 
+     void notifyStateChange(QAccessibleInterface *interface, const QString& state, int value);
+ 
++    void sendAnnouncement(QAccessibleAnnouncementEvent *event);
++
+     // accessible helper functions
+     AtspiRole getRole(QAccessibleInterface *interface) const;
+     QSpiRelationArray relationSet(QAccessibleInterface *interface, const QDBusConnection &connection) const;
+@@ -112,7 +114,7 @@ private:
+ 
+     // private vars
+     QSpiObjectReference accessibilityRegistry;
+-    DBusConnection *m_dbus;
++    QAtSpiDBusConnection *m_dbus;
+     QSpiApplicationAdaptor *m_applicationAdaptor;
+ 
+     /// Assigned from the accessibility registry.
+@@ -131,6 +133,7 @@ private:
+     // all of object
+     uint sendObject : 1;
+     uint sendObject_active_descendant_changed : 1;
++    uint sendObject_announcement : 1;
+     uint sendObject_attributes_changed : 1;
+     uint sendObject_bounds_changed : 1;
+     uint sendObject_children_changed : 1;
+diff --git a/src/gui/accessible/linux/dbusconnection.cpp b/src/gui/accessible/linux/dbusconnection.cpp
+index 9105768..b2bbe0b 100644
+--- a/src/gui/accessible/linux/dbusconnection.cpp
++++ b/src/gui/accessible/linux/dbusconnection.cpp
+@@ -26,13 +26,13 @@ using namespace Qt::StringLiterals;
+ #define A11Y_PATH "/org/a11y/bus"_L1
+ 
+ /*!
+-    \class DBusConnection
++    \class QAtSpiDBusConnection
+     \internal
+     \brief Connects to the accessibility dbus.
+ 
+     This is usually a different bus from the session bus.
+ */
+-DBusConnection::DBusConnection(QObject *parent)
++QAtSpiDBusConnection::QAtSpiDBusConnection(QObject *parent)
+     : QObject(parent), m_a11yConnection(QString()), m_enabled(false)
+ {
+     // If the bus is explicitly set via env var it overrides everything else.
+@@ -58,6 +58,8 @@ DBusConnection::DBusConnection(QObject *parent)
+ 
+     dbusWatcher = new QDBusServiceWatcher(A11Y_SERVICE, c, QDBusServiceWatcher::WatchForRegistration, this);
+     connect(dbusWatcher, SIGNAL(serviceRegistered(QString)), this, SLOT(serviceRegistered()));
++    dbusWatcherUnregister = new QDBusServiceWatcher(A11Y_SERVICE, c, QDBusServiceWatcher::WatchForUnregistration, this);
++    connect(dbusWatcherUnregister, SIGNAL(serviceUnregistered(QString)), this, SLOT(serviceUnregistered()));
+ 
+     // If it is registered already, setup a11y right away
+     if (c.interface()->isServiceRegistered(A11Y_SERVICE))
+@@ -71,11 +73,14 @@ DBusConnection::DBusConnection(QObject *parent)
+     }
+ }
+ 
+-QString DBusConnection::getAddressFromXCB()
++QString QAtSpiDBusConnection::getAddressFromXCB()
+ {
+     QGuiApplication *app = qobject_cast<QGuiApplication *>(QCoreApplication::instance());
+     if (!app)
++    {
+         return QString();
++    }
++        
+     QPlatformNativeInterface *platformNativeInterface = app->platformNativeInterface();
+     QByteArray *addressByteArray = reinterpret_cast<QByteArray*>(
+                 platformNativeInterface->nativeResourceForIntegration(QByteArrayLiteral("AtspiBus")));
+@@ -90,7 +95,7 @@ QString DBusConnection::getAddressFromXCB()
+ // We have the a11y registry on the session bus.
+ // Subscribe to updates about a11y enabled state.
+ // Find out the bus address
+-void DBusConnection::serviceRegistered()
++void QAtSpiDBusConnection::serviceRegistered()
+ {
+     // listen to enabled changes
+     QDBusConnection c = QDBusConnection::sessionBus();
+@@ -102,7 +107,6 @@ void DBusConnection::serviceRegistered()
+     static const bool a11yAlwaysOn = qEnvironmentVariableIsSet("QT_LINUX_ACCESSIBILITY_ALWAYS_ON");
+ 
+     bool enabled = a11yAlwaysOn || a11yStatus->screenReaderEnabled() || a11yStatus->isEnabled();
+-
+     if (enabled != m_enabled) {
+         m_enabled = enabled;
+         if (m_a11yConnection.isConnected()) {
+@@ -118,12 +122,13 @@ void DBusConnection::serviceRegistered()
+     //    connect(a11yStatus, ); QtDbus doesn't support notifications for property changes yet
+ }
+ 
+-void DBusConnection::serviceUnregistered()
++void QAtSpiDBusConnection::serviceUnregistered()
+ {
++    m_enabled = false;
+     emit enabledChanged(false);
+ }
+ 
+-void DBusConnection::connectA11yBus(const QString &address)
++void QAtSpiDBusConnection::connectA11yBus(const QString &address)
+ {
+     if (address.isEmpty()) {
+         qWarning("Could not find Accessibility DBus address.");
+@@ -135,7 +140,7 @@ void DBusConnection::connectA11yBus(const QString &address)
+         emit enabledChanged(true);
+ }
+ 
+-void DBusConnection::dbusError(const QDBusError &error)
++void QAtSpiDBusConnection::dbusError(const QDBusError &error)
+ {
+     qWarning() << "Accessibility encountered a DBus error:" << error;
+ }
+@@ -144,7 +149,7 @@ void DBusConnection::dbusError(const QDBusError &error)
+   Returns the DBus connection that got established.
+   Or an invalid connection if not yet connected.
+ */
+-QDBusConnection DBusConnection::connection() const
++QDBusConnection QAtSpiDBusConnection::connection() const
+ {
+     return m_a11yConnection;
+ }
+diff --git a/src/gui/accessible/linux/dbusconnection_p.h b/src/gui/accessible/linux/dbusconnection_p.h
+index 8b231c5..e38bfe4 100644
+--- a/src/gui/accessible/linux/dbusconnection_p.h
++++ b/src/gui/accessible/linux/dbusconnection_p.h
+@@ -27,12 +27,12 @@ QT_BEGIN_NAMESPACE
+ 
+ class QDBusServiceWatcher;
+ 
+-class DBusConnection : public QObject
++class QAtSpiDBusConnection : public QObject
+ {
+     Q_OBJECT
+ 
+ public:
+-    DBusConnection(QObject *parent = nullptr);
++    QAtSpiDBusConnection(QObject *parent = nullptr);
+     QDBusConnection connection() const;
+     bool isEnabled() const { return m_enabled; }
+ 
+@@ -52,6 +52,7 @@ private:
+     QString getAccessibilityBusAddress() const;
+ 
+     QDBusServiceWatcher *dbusWatcher;
++    QDBusServiceWatcher *dbusWatcherUnregister = nullptr;
+     QDBusConnection m_a11yConnection;
+     bool m_enabled;
+ };
+diff --git a/src/gui/accessible/linux/qspiaccessiblebridge.cpp b/src/gui/accessible/linux/qspiaccessiblebridge.cpp
+index f59d8be..43bdd9a 100644
+--- a/src/gui/accessible/linux/qspiaccessiblebridge.cpp
++++ b/src/gui/accessible/linux/qspiaccessiblebridge.cpp
+@@ -31,7 +31,7 @@ using namespace Qt::StringLiterals;
+ QSpiAccessibleBridge::QSpiAccessibleBridge()
+     : cache(nullptr), dec(nullptr), dbusAdaptor(nullptr)
+ {
+-    dbusConnection = new DBusConnection();
++    dbusConnection = new QAtSpiDBusConnection();
+     connect(dbusConnection, SIGNAL(enabledChanged(bool)), this, SLOT(enabledChanged(bool)));
+     // Now that we have connected the signal, make sure we didn't miss a change,
+     // e.g. when running as root or when AT_SPI_BUS_ADDRESS is set by hand.
+@@ -46,7 +46,7 @@ QSpiAccessibleBridge::QSpiAccessibleBridge()
+ void QSpiAccessibleBridge::enabledChanged(bool enabled)
+ {
+     setActive(enabled);
+-    updateStatus();
++    updateStatus(enabled);
+ }
+ 
+ QSpiAccessibleBridge::~QSpiAccessibleBridge()
+@@ -59,8 +59,15 @@ QDBusConnection QSpiAccessibleBridge::dBusConnection() const
+     return dbusConnection->connection();
+ }
+ 
+-void QSpiAccessibleBridge::updateStatus()
++void QSpiAccessibleBridge::updateStatus(bool enabled)
+ {
++    if (!enabled) {
++        if (dbusAdaptor) {
++            // to-do: support disable and enable
++        }
++        return;
++    }
++
+     // create the adaptor to handle everything if we are in enabled state
+     if (!dbusAdaptor && isActive()) {
+         qSpiInitializeStructTypes();
+@@ -79,8 +86,9 @@ void QSpiAccessibleBridge::updateStatus()
+ 
+ void QSpiAccessibleBridge::notifyAccessibilityUpdate(QAccessibleEvent *event)
+ {
+-    if (!dbusAdaptor)
++    if (!dbusAdaptor) {
+         return;
++    }
+     if (isActive() && event->accessibleInterface())
+         dbusAdaptor->notify(event);
+ }
+diff --git a/src/gui/accessible/linux/qspiaccessiblebridge_p.h b/src/gui/accessible/linux/qspiaccessiblebridge_p.h
+index 5ad48c5..51cf9aa 100644
+--- a/src/gui/accessible/linux/qspiaccessiblebridge_p.h
++++ b/src/gui/accessible/linux/qspiaccessiblebridge_p.h
+@@ -27,7 +27,7 @@ QT_REQUIRE_CONFIG(accessibility);
+ 
+ QT_BEGIN_NAMESPACE
+ 
+-class DBusConnection;
++class QAtSpiDBusConnection;
+ class QSpiDBusCache;
+ class AtSpiAdaptor;
+ struct RoleNames;
+@@ -55,12 +55,12 @@ public Q_SLOTS:
+ 
+ private:
+     void initializeConstantMappings();
+-    void updateStatus();
++    void updateStatus(bool enabled);
+ 
+     QSpiDBusCache *cache;
+     DeviceEventControllerAdaptor *dec;
+     AtSpiAdaptor *dbusAdaptor;
+-    DBusConnection* dbusConnection;
++    QAtSpiDBusConnection* dbusConnection;
+     SpiRoleMapping m_spiRoleMapping;
+ };
+ 
+diff --git a/src/gui/accessible/linux/qspiapplicationadaptor.cpp b/src/gui/accessible/linux/qspiapplicationadaptor.cpp
+index 963490d..a791c4f 100644
+--- a/src/gui/accessible/linux/qspiapplicationadaptor.cpp
++++ b/src/gui/accessible/linux/qspiapplicationadaptor.cpp
+@@ -12,7 +12,7 @@
+ #include "deviceeventcontroller_adaptor.h"
+ #include "atspi/atspi-constants.h"
+ 
+-#include <xcb/xproto.h>
++//#include <xcb/xproto.h>
+ 
+ //#define KEYBOARD_DEBUG
+ 
+@@ -126,8 +126,8 @@ bool QSpiApplicationAdaptor::eventFilter(QObject *target, QEvent *event)
+         if ((keyEvent->modifiers() & Qt::ShiftModifier) && (keyEvent->key() != Qt::Key_Shift))
+             de.modifiers |= 1 << ATSPI_MODIFIER_SHIFT;
+         // TODO rather introduce Qt::CapslockModifier into KeyboardModifier
+-        if (keyEvent->nativeModifiers() & XCB_MOD_MASK_LOCK )
+-            de.modifiers |= 1 << ATSPI_MODIFIER_SHIFTLOCK;
++        //if (keyEvent->nativeModifiers() & XCB_MOD_MASK_LOCK )
++        //    de.modifiers |= 1 << ATSPI_MODIFIER_SHIFTLOCK;
+         if ((keyEvent->modifiers() & Qt::ControlModifier) && (keyEvent->key() != Qt::Key_Control))
+             de.modifiers |= 1 << ATSPI_MODIFIER_CONTROL;
+         if ((keyEvent->modifiers() & Qt::AltModifier) && (keyEvent->key() != Qt::Key_Alt))
+diff --git a/src/gui/accessible/qaccessible.cpp b/src/gui/accessible/qaccessible.cpp
+index 13333bf..299b13a 100644
+--- a/src/gui/accessible/qaccessible.cpp
++++ b/src/gui/accessible/qaccessible.cpp
+@@ -173,6 +173,7 @@ Q_LOGGING_CATEGORY(lcAccessibilityCore, "qt.accessibility.core");
+     \value ActionChanged                    An action has been changed.
+     \value ActiveDescendantChanged
+     \value Alert                            A system alert (e.g., a message from a QMessageBox)
++    \value [since 6.8] Announcement         The announcement of a message is requested.
+     \value AttributeChanged
+     \value ContextHelpEnd                   Context help (QWhatsThis) for an object is finished.
+     \value ContextHelpStart                 Context help (QWhatsThis) for an object is initiated.
+@@ -398,6 +399,63 @@ Q_LOGGING_CATEGORY(lcAccessibilityCore, "qt.accessibility.core");
+ */
+ 
+ 
++/*  These attributes are comparable to the concept of properties/(object)
++    attributes found in ARIA, AT-SPI2, IAccessible, UIA and NSAccessibility
++    and are mapped to their platform counterpart where applicable.
++
++    Each attribute is handled as a key-value pair, with the values of this
++    enumeration being used as keys.
++
++    Attribute values are represented in a \l QVariant. The type of the value
++    stored in the \l QVariant is fixed and specified below for each of the
++    attribute types.
++
++    \value Custom               value type: \a QHash<QString, QString>
++                                The \a Custom attribute is special in that
++                                it can effectively represent multiple attributes at
++                                once, since it itself is a \l QHash used to represent
++                                key-value pairs.
++                                For platforms supporting custom key-value pairs for
++                                attributes, those set in the \a Custom attribute
++                                are bridged to the platform layer without applying any
++                                translation to platform-specific attributes. In general,
++                                the other, more strongly typed attributes should be used.
++                                This attribute can e.g. be used for prototyping
++                                before officially adding an official new enumeration value
++                                for a specific feature.
++    \value Level                value type: \a int
++                                Defines the hierarchical level of an element within a structure,
++                                e.g. the heading level of a heading. This attribute conceptually
++                                matches the "aria-level" property in ARIA.
++
++    \sa QAccessibleAttributesInterface
++*/
++
++/*! \enum QAccessible::AnnouncementPriority
++    This enum describes the priority for announcements used by the
++    \l QAccessibleAnnouncementEvent.
++    \since 6.8
++
++    With \a QAccessible::AnouncementPriority::Polite, assistive technologies
++    should announce the message at the next graceful opportunity such as at the
++    end of speaking the current sentence or when the user pauses typing.
++
++    When specifying \a QAccessible::AnouncementPriority::Assertive, assistive
++    technologies should notify the user immediately.
++
++    Because an interruption might disorient users or cause them to not complete
++    their current task, \a QAccessible::AnouncementPriority::Assertive should
++    not be used unless the interruption is imperative.
++
++    \value Polite      The announcement has normal priority.
++    \value Assertive   The announcement has high priority and should notify
++                       the user immediately, even if that means interrupting the user's
++                       current task.
++
++    \sa QAccessibleAnnouncementEvent
++*/
++
++
+ /*!
+     \enum QAccessible::InterfaceType
+ 
+@@ -1725,7 +1783,56 @@ QAccessibleTextSelectionEvent::~QAccessibleTextSelectionEvent()
+ {
+ }
+ 
++/*!
++    \since 6.8
++    \class QAccessibleAnnouncementEvent
++    \ingroup accessibility
++    \inmodule QtGui
++
++    \brief The QAccessibleAnnouncementEvent is used to request the announcement
++    of a given message by assistive technologies.
++
++    This class is used with \l QAccessible::updateAccessibility().
++*/
++
++/*! \fn QAccessibleAnnouncementEvent::QAccessibleAnnouncementEvent(QObject *object, const QString &message)
+ 
++    Constructs a new QAccessibleAnnouncementEvent event for \a object
++    to request the announcement of \a message with priority \l QAccessible::AnnouncementPriority::Polite.
++
++    \l QAccessibleAnnouncementEvent::setPriority can be used to adjust the priority.
++*/
++
++/*! \fn QAccessibleAnnouncementEvent::QAccessibleAnnouncementEvent(QAccessibleInterface *iface, const QString &message)
++
++    Constructs a new QAccessibleAnnouncementEvent event for \a iface
++    to request the announcement of \a message with priority \l QAccessible::AnnouncementPriority::Polite.
++
++    \l QAccessibleAnnouncementEvent::setPriority can be used to adjust the priority.
++*/
++
++/*! \fn QString QAccessibleAnnouncementEvent::message() const
++
++    Returns the message.
++*/
++
++/*! \fn QAccessible::AnnouncementPriority QAccessibleAnnouncementEvent::priority() const
++
++    Returns the priority.
++*/
++
++/*! \fn void QAccessibleAnnouncementEvent::setPriority(QAccessible::AnnouncementPriority priority)
++
++    Sets the priority with which the announcement will be requested to \a priority.
++*/
++
++
++/*!
++    \internal
++*/
++QAccessibleAnnouncementEvent::~QAccessibleAnnouncementEvent()
++{
++}
+ 
+ /*!
+     Returns the QAccessibleInterface associated with the event.
+diff --git a/src/gui/accessible/qaccessible.h b/src/gui/accessible/qaccessible.h
+index 3fdc4eb..512e81c 100644
+--- a/src/gui/accessible/qaccessible.h
++++ b/src/gui/accessible/qaccessible.h
+@@ -303,6 +303,7 @@ public:
+         Q_ASSERT(m_type != QAccessible::TextRemoved);
+         Q_ASSERT(m_type != QAccessible::TextUpdated);
+         Q_ASSERT(m_type != QAccessible::TableModelChanged);
++        Q_ASSERT(m_type != QAccessible::Announcement);
+     }
+ 
+     inline QAccessibleEvent(QAccessibleInterface *iface, QAccessible::Event typ)
+@@ -317,6 +318,7 @@ public:
+         Q_ASSERT(m_type != QAccessible::TextRemoved);
+         Q_ASSERT(m_type != QAccessible::TextUpdated);
+         Q_ASSERT(m_type != QAccessible::TableModelChanged);
++        Q_ASSERT(m_type != QAccessible::Announcement);
+         m_uniqueId = QAccessible::uniqueId(iface);
+         m_object = iface->object();
+     }
+@@ -592,6 +594,36 @@ protected:
+     int m_lastColumn;
+ };
+ 
++class Q_GUI_EXPORT QAccessibleAnnouncementEvent : public QAccessibleEvent
++{
++public:
++    inline QAccessibleAnnouncementEvent(QObject *object, const QString &message)
++        : QAccessibleEvent(object, QAccessible::InvalidEvent)
++          , m_message(message)
++          , m_priority(QAccessible::AnnouncementPriority::Polite)
++    {
++        m_type = QAccessible::Announcement;
++    }
++
++    inline QAccessibleAnnouncementEvent(QAccessibleInterface *iface, const QString &message)
++        : QAccessibleEvent(iface, QAccessible::InvalidEvent)
++          , m_message(message)
++          , m_priority(QAccessible::AnnouncementPriority::Polite)
++    {
++        m_type = QAccessible::Announcement;
++    }
++
++    ~QAccessibleAnnouncementEvent();
++
++    QString message() const { return m_message; }
++    QAccessible::AnnouncementPriority priority() const { return m_priority; }
++    void setPriority(QAccessible::AnnouncementPriority priority) { m_priority = priority; };
++
++protected:
++    QString m_message;
++    QAccessible::AnnouncementPriority m_priority;
++};
++
+ #ifndef Q_QDOC
+ #define QAccessibleInterface_iid "org.qt-project.Qt.QAccessibleInterface"
+ Q_DECLARE_INTERFACE(QAccessibleInterface, QAccessibleInterface_iid)
+diff --git a/src/gui/accessible/qaccessible_base.h b/src/gui/accessible/qaccessible_base.h
+index ac50c26..3c0740b 100644
+--- a/src/gui/accessible/qaccessible_base.h
++++ b/src/gui/accessible/qaccessible_base.h
+@@ -101,6 +101,7 @@ public:
+         HelpChanged          = 0x80A0,
+         DefaultActionChanged = 0x80B0,
+         AcceleratorChanged   = 0x80C0,
++        Announcement         = 0x80D0,
+ 
+         InvalidEvent
+     };
+@@ -357,6 +358,16 @@ public:
+         NoBoundary
+     };
+ 
++    enum class Attribute {
++        Custom,
++        Level,
++    };
++
++    enum class AnnouncementPriority {
++        Polite,
++        Assertive
++    };
++
+     typedef QAccessibleInterface*(*InterfaceFactory)(const QString &key, QObject*);
+     typedef void(*UpdateHandler)(QAccessibleEvent *event);
+     typedef void(*RootObjectHandler)(QObject*);
+diff --git a/src/gui/image/qimage.cpp b/src/gui/image/qimage.cpp
+index 71367f6..0b8611b 100644
+--- a/src/gui/image/qimage.cpp
++++ b/src/gui/image/qimage.cpp
+@@ -43,6 +43,7 @@
+ #include <qtgui_tracepoints_p.h>
+ 
+ #include <memory>
++#include <algorithm>
+ 
+ QT_BEGIN_NAMESPACE
+ 
+@@ -2954,6 +2955,79 @@ bool QImage::isGrayscale() const
+     return false;
+ }
+ 
++const unsigned int GRAY_THRESHOLD = 15;
++inline bool qIsGrayThreshold(QRgb rgb, int threshold)
++{ return fabs(qRed(rgb)-qGreen(rgb))<threshold && fabs(qRed(rgb)-qBlue(rgb))<threshold && fabs(qGreen(rgb)-qBlue(rgb))<threshold; }
++
++
++bool QImage::isGrayscale(const QRect &rect, int threshold, int sample) const
++{
++    if (!d)
++        return true;
++
++    int startY = std::max(0, rect.top());
++    int endY = std::min(rect.bottom()+1, d->height);
++    int startX = std::max(0, rect.left());
++    int endX = std::min(rect.right()+1,d->width);
++    switch (d->format) {
++    case Format_Mono:
++    case Format_MonoLSB:
++    case Format_Indexed8:
++        // not constrained to rect in this case
++        for (int i = 0; i < d->colortable.size(); ++i) {
++            if (!qIsGrayThreshold(d->colortable.at(i), threshold))
++                return false;
++        }
++        return true;
++    case Format_RGB32:
++    case Format_ARGB32:
++    case Format_ARGB32_Premultiplied:
++#if Q_BYTE_ORDER == Q_LITTLE_ENDIAN
++    case Format_RGBX8888:
++    case Format_RGBA8888:
++    case Format_RGBA8888_Premultiplied:
++#endif
++        for (int j = startY; j < endY; j+=sample) {
++            const QRgb *b = (const QRgb *)constScanLine(j);
++            for (int i = startX; i < endX; i+=sample) {
++                if (!qIsGrayThreshold(b[i], threshold))
++                    return false;
++            }
++        }
++        return true;
++    case Format_RGB16:
++        for (int j = startY; j < endY; j+=sample) {
++            const quint16 *b = (const quint16 *)constScanLine(j);
++            for (int i = startX; i < endX; i+=sample) {
++                if (!qIsGrayThreshold(qConvertRgb16To32(b[i]), threshold))
++                    return false;
++            }
++        }
++        return true;
++    default:
++        break;
++    }
++
++    const int buffer_size = 2048;
++    uint buffer[buffer_size];
++    const QPixelLayout *layout = &qPixelLayouts[d->format];
++    const auto fetch = layout->fetchToARGB32PM;
++    for (int j = startY; j < endY; j+=sample) {
++        const uchar *b = constScanLine(j);
++        int x = startX;
++        while (x < endX) {
++            int l = qMin(d->width - x, buffer_size);
++            const uint *ptr = fetch(buffer, b, x, l, nullptr, nullptr);
++            for (int i = 0; i < l; ++i) {
++                if (!qIsGrayThreshold(ptr[i], threshold))
++                    return false;
++            }
++            x += l*sample;
++        }
++    }
++    return true;
++}
++
+ /*!
+     \fn QImage QImage::scaled(int width, int height, Qt::AspectRatioMode aspectRatioMode,
+                              Qt::TransformationMode transformMode) const
+diff --git a/src/gui/image/qimage.h b/src/gui/image/qimage.h
+index 86c49ac..bb3114d 100644
+--- a/src/gui/image/qimage.h
++++ b/src/gui/image/qimage.h
+@@ -155,6 +155,7 @@ public:
+ 
+     bool allGray() const;
+     bool isGrayscale() const;
++    bool isGrayscale(const QRect &rect, int threshold, int sample) const;
+ 
+     uchar *bits();
+     const uchar *bits() const;
+diff --git a/src/gui/kernel/qevent.cpp b/src/gui/kernel/qevent.cpp
+index d2bf905..154ba56 100644
+--- a/src/gui/kernel/qevent.cpp
++++ b/src/gui/kernel/qevent.cpp
+@@ -1632,6 +1632,17 @@ QPaintEvent::QPaintEvent(const QRect &paintRect)
+ 
+ Q_IMPL_EVENT_COMMON(QPaintEvent)
+ 
++QPaintedEvent::QPaintedEvent(const QRegion& paintRegion)
++    : QEvent(Painted), m_rect(paintRegion.boundingRect()), m_region(paintRegion)
++{}
++
++QPaintedEvent::QPaintedEvent(const QRect &paintRect)
++    : QEvent(Painted), m_rect(paintRect),m_region(paintRect)
++{}
++
++QPaintedEvent::~QPaintedEvent()
++{}
++
+ /*!
+     \fn const QRect &QPaintEvent::rect() const
+ 
+@@ -4472,6 +4483,7 @@ QTouchEvent::QTouchEvent(QEvent::Type eventType,
+                          const QList<QEventPoint> &touchPoints)
+     : QPointerEvent(eventType, device, modifiers, touchPoints),
+       m_target(nullptr)
++      ,m_usecTimestamp(0)
+ {
+     for (QEventPoint &point : m_points) {
+         m_touchPointStates |= point.state();
+@@ -4495,6 +4507,7 @@ QTouchEvent::QTouchEvent(QEvent::Type eventType,
+     : QPointerEvent(eventType, device, modifiers, touchPoints),
+       m_target(nullptr),
+       m_touchPointStates(touchPointStates)
++      ,m_usecTimestamp(0)
+ {
+     for (QEventPoint &point : m_points)
+         QMutableEventPoint::setDevice(point, device);
+diff --git a/src/gui/kernel/qevent.h b/src/gui/kernel/qevent.h
+index a3fd09d..86b3a53 100644
+--- a/src/gui/kernel/qevent.h
++++ b/src/gui/kernel/qevent.h
+@@ -497,6 +497,23 @@ protected:
+     bool m_erased;
+ };
+ 
++class Q_GUI_EXPORT QPaintedEvent : public QEvent
++{
++public:
++    explicit QPaintedEvent(const QRegion& paintRegion);
++    explicit QPaintedEvent(const QRect &paintRect);
++    ~QPaintedEvent();
++
++    inline const QRect &rect() const { return m_rect; }
++    inline const QRegion &region() const { return m_region; }
++
++protected:
++    friend class QApplication;
++    friend class QCoreApplication;
++    QRect m_rect;
++    QRegion m_region;
++};
++
+ class Q_GUI_EXPORT QMoveEvent : public QEvent
+ {
+     Q_DECL_EVENT_COMMON(QMoveEvent)
+@@ -938,10 +955,12 @@ public:
+     bool isUpdateEvent() const override;
+     bool isEndEvent() const override;
+ 
++    quint64 usecTimestamp() const {return m_usecTimestamp; }
+ protected:
+     QObject *m_target = nullptr;
+     QEventPoint::States m_touchPointStates = QEventPoint::State::Unknown;
+     quint32 m_reserved : 24;
++    quint64 m_usecTimestamp;
+ };
+ 
+ class Q_GUI_EXPORT QScrollPrepareEvent : public QEvent
+diff --git a/src/gui/kernel/qevent_p.h b/src/gui/kernel/qevent_p.h
+index 96ef8f1..f7b68f5 100644
+--- a/src/gui/kernel/qevent_p.h
++++ b/src/gui/kernel/qevent_p.h
+@@ -39,6 +39,7 @@ public:
+     static QMutableTouchEvent &from(QTouchEvent &e) { return static_cast<QMutableTouchEvent &>(e); }
+ 
+     void setTarget(QObject *target) { m_target = target; }
++    void setUsecTimestamp(quint64 timeStamp) { m_usecTimestamp = timeStamp;}
+ 
+     void addPoint(const QEventPoint &point);
+ };
+diff --git a/src/gui/kernel/qguiapplication.cpp b/src/gui/kernel/qguiapplication.cpp
+index 82475da..036387d 100644
+--- a/src/gui/kernel/qguiapplication.cpp
++++ b/src/gui/kernel/qguiapplication.cpp
+@@ -713,6 +713,16 @@ QGuiApplicationPrivate::QGuiApplicationPrivate(int &argc, char **argv)
+ #endif
+ }
+ 
++const QElapsedTimer &QGuiApplication::getPerformanceTimer()
++{
++    return QWindowSystemInterfacePrivate::eventTime;
++}
++
++qint64 QGuiApplication::usecsElapsed()
++{
++    return QWindowSystemInterfacePrivate::eventTime.nsecsElapsed()/1000;
++}
++
+ /*!
+     \property QGuiApplication::applicationDisplayName
+     \brief the user-visible name of this application
+@@ -3014,6 +3024,7 @@ void QGuiApplicationPrivate::processTouchEvent(QWindowSystemInterfacePrivate::To
+             QMutableTouchEvent mte(e->touchType, device, e->modifiers, {ep});
+             mte.setTimestamp(e->timestamp);
+             mte.setTarget(window.data());
++            mte.setUsecTimestamp(e->usecTimestamp);
+             touchEvents.append(mte);
+         }
+     }
+@@ -3120,6 +3131,286 @@ void QGuiApplicationPrivate::processTouchEvent(QWindowSystemInterfacePrivate::To
+     }
+ }
+ 
++namespace {
++    void doLog(const char* str, const QTouchEvent &e)
++    {
++        if (e.pointCount()>0) {
++            const QEventPoint &p = e.points().first();
++            qCDebug(lcPtrDispatch) << str << "(type,x,y,pressure)=" << e.type() << p.globalPosition() << p.pressure();
++        }
++        else {
++            qCDebug(lcPtrDispatch) << str << "(type)=" << e.type();
++        }
++    }
++}
++
++// This function needs to be revised when we do the work to prototype handling touch events off main thread
++// for now, the code that looks like it could compete with main thread handling has been #if 0'd out, but this needs to be re-examined for functionality and correctness
++void QGuiApplicationPrivate::processTouchEventShortCircuit(QWindowSystemInterfacePrivate::TouchEvent *e)
++{
++    if (!QInputDevicePrivate::isRegistered(e->device))
++        return;
++
++    if (e->device->type() != QInputDevice::DeviceType::TouchScreen)
++        return;
++
++    QPointingDevice *device = const_cast<QPointingDevice *>(static_cast<const QPointingDevice *>(e->device));
++    if (!(device->pointerType() & QPointingDevice::PointerType::Pen))
++        return;
++
++    QCoreApplication *pApp = QGuiApplication::instance();
++    modifier_buttons = e->modifiers;
++    QPointingDevicePrivate *devPriv = QPointingDevicePrivate::get(device);
++    if (e->touchType == QEvent::TouchCancel) {
++        qCDebug(lcPtrDispatch) << "XXX processTouchEventShortCircuit ignoring QEvent::TouchCancel";
++#if 0
++        // The touch sequence has been canceled (e.g. by the compositor).
++        // Send the TouchCancel to all windows with active touches and clean up.
++        QTouchEvent touchEvent(QEvent::TouchCancel, device, e->modifiers);
++        touchEvent.setTimestamp(e->timestamp);
++        QSet<QWindow *> windowsNeedingCancel;
++
++        for (auto &epd : devPriv->activePoints.values()) {
++            if (QWindow *w = QMutableEventPoint::window(epd.eventPoint))
++                windowsNeedingCancel.insert(w);
++        }
++
++        for (QSet<QWindow *>::const_iterator winIt = windowsNeedingCancel.constBegin(),
++            winItEnd = windowsNeedingCancel.constEnd(); winIt != winItEnd; ++winIt) {
++            // TODO
++            //QGuiApplication::sendSpontaneousEvent(*winIt, &touchEvent);
++        }
++        if (!self->synthesizedMousePoints.isEmpty() && !e->synthetic()) {
++            for (QHash<QWindow *, SynthesizedMouseData>::const_iterator synthIt = self->synthesizedMousePoints.constBegin(),
++                 synthItEnd = self->synthesizedMousePoints.constEnd(); synthIt != synthItEnd; ++synthIt) {
++                if (!synthIt->window)
++                    continue;
++                QWindowSystemInterfacePrivate::MouseEvent fake(synthIt->window.data(),
++                                                               e->timestamp,
++                                                               synthIt->pos,
++                                                               synthIt->screenPos,
++                                                               Qt::NoButton,
++                                                               e->modifiers,
++                                                               Qt::LeftButton,
++                                                               QEvent::MouseButtonRelease,
++                                                               Qt::MouseEventNotSynthesized,
++                                                               false,
++                                                               device);
++                fake.flags |= QWindowSystemInterfacePrivate::WindowSystemEvent::Synthetic;
++                // TODO
++                //processMouseEvent(&fake);
++            }
++            self->synthesizedMousePoints.clear();
++        }
++        self->lastTouchType = e->touchType;
++#endif
++        return;
++    }
++
++#if 0
++    // Prevent sending ill-formed event sequences: Cancel can only be followed by a Begin.
++    if (self->lastTouchType == QEvent::TouchCancel && e->touchType != QEvent::TouchBegin)
++        return;
++    self->lastTouchType = e->touchType;
++#endif
++
++    QPointer<QWindow> window = e->window;  // the platform hopefully tells us which window received the event
++    QVarLengthArray<QMutableTouchEvent, 2> touchEvents;
++
++    // For each temporary QEventPoint from the QPA TouchEvent:
++    // - update the persistent QEventPoint in QPointingDevicePrivate::activePoints with current values
++    // - determine which window to deliver it to
++    // - add it to the QTouchEvent instance for that window (QMutableTouchEvent::target() will be QWindow*, for now)
++    for (auto &tempPt : e->points) {
++        // update state
++        // This adds a point to the device
++        QEventPoint ep;
++        QMutableEventPoint::setId(ep, tempPt.id());
++        QMutableEventPoint::setDevice(ep, device);  // probably not even necessary
++        // TODO: user this instead
++        //QMutableEventPoint::withTimeStamp(ulong timestamp, int pointId, QEventPoint::State state,
++        //                                  QPointF position, QPointF scenePosition, QPointF globalPosition)
++#if 0
++        auto epd = devPriv->pointById(tempPt.id());
++        auto &ep = epd->eventPoint;
++        epd->eventPoint.setAccepted(false);
++        switch (tempPt.state()) {
++        case QEventPoint::State::Pressed:
++            // On touchpads, send all touch points to the same window.
++            if (!window && e->device && e->device->type() == QInputDevice::DeviceType::TouchPad)
++                window = devPriv->firstActiveWindow();
++            // If the QPA event didn't tell us which window, find the one under the touchpoint position.
++            if (!window)
++                window = QGuiApplication::topLevelAt(tempPt.globalPosition().toPoint());
++            QMutableEventPoint::setWindow(ep, window);
++            break;
++
++        case QEventPoint::State::Released:
++            if (Q_UNLIKELY(!window.isNull() && window != QMutableEventPoint::window(ep)))
++                qCDebug(lcPtrDispatch) << "delivering touch release to same window"
++                                       << QMutableEventPoint::window(ep) << "not" << window.data();
++            window = QMutableEventPoint::window(ep);
++            break;
++
++        default: // update or stationary
++            if (Q_UNLIKELY(!window.isNull() && window != QMutableEventPoint::window(ep)))
++                qCDebug(lcPtrDispatch) << "delivering touch update to same window"
++                                       << QMutableEventPoint::window(ep) << "not" << window.data();
++            window = QMutableEventPoint::window(ep);
++            break;
++        }
++        // If we somehow still don't have a window, we can't deliver this touchpoint.  (should never happen)
++        if (Q_UNLIKELY(!window)) {
++            qCWarning(lcPtrDispatch) << "skipping" << &tempPt << ": no target window";
++            continue;
++        }
++        Q_ASSERT(window.data() != nullptr);
++#endif
++        QMutableEventPoint::update(tempPt, ep);
++
++
++        // make the *scene* position the same as the *global* position
++        QMutableEventPoint::setScenePosition(ep, tempPt.globalPosition());
++        QMutableEventPoint::setPosition(ep, tempPt.globalPosition());
++
++        // store the scene position as local position, for now
++        //QMutableEventPoint::setPosition(ep, window->mapFromGlobal(tempPt.globalPosition()));
++
++        // setTimeStamp has side effects, so we do it last
++        QMutableEventPoint::setTimestamp(ep, e->timestamp);
++
++        // add the touchpoint to the event that will be delivered to the window
++        bool added = false;
++        for (QMutableTouchEvent &ev : touchEvents) {
++            if (true) {//ev.target() == window.data()) {
++                ev.addPoint(ep);
++                added = true;
++                break;
++            }
++        }
++        if (!added) {
++            QMutableTouchEvent mte(e->touchType, device, e->modifiers, {ep});
++            mte.setTimestamp(e->timestamp);
++            mte.setUsecTimestamp(e->usecTimestamp);
++            //mte.setTarget(window.data());
++            touchEvents.append(mte);
++        }
++    }
++
++    if (touchEvents.isEmpty())
++        return;
++
++    for (QMutableTouchEvent &touchEvent : touchEvents) {
++        //QWindow *window = static_cast<QWindow *>(touchEvent.target());
++
++        QEvent::Type eventType;
++        switch (touchEvent.touchPointStates()) {
++        case QEventPoint::State::Pressed:
++            eventType = QEvent::TouchBegin;
++            break;
++        case QEventPoint::State::Released:
++            eventType = QEvent::TouchEnd;
++            break;
++        default:
++            eventType = QEvent::TouchUpdate;
++            break;
++        }
++
++#if 0
++        if (window->d_func()->blockedByModalWindow && !qApp->d_func()->popupActive()) {
++            // a modal window is blocking this window, don't allow touch events through
++
++            // QTBUG-37371 temporary fix; TODO: revisit when we have a forwarding solution
++            if (touchEvent.type() == QEvent::TouchEnd) {
++                // but don't leave dangling state: e.g.
++                // QQuickWindowPrivate::itemForTouchPointId needs to be cleared.
++                QTouchEvent touchEvent(QEvent::TouchCancel, device, e->modifiers);
++                touchEvent.setTimestamp(e->timestamp);
++                // TODO
++                //QGuiApplication::sendSpontaneousEvent(window, &touchEvent);
++
++                doLog( "XXX processTouchEventShortCircuit-1", touchEvent);
++                pApp->event(&touchEvent);
++            }
++            continue;
++        }
++#endif
++
++        // Note: after the call to sendSpontaneousEvent, touchEvent.position() will have
++        // changed to reflect the local position inside the last (random) widget it tried
++        // to deliver the touch event to, and will therefore be invalid afterwards.
++        // TODO
++        //QGuiApplication::sendSpontaneousEvent(window, &touchEvent);
++        doLog( "XXX processTouchEventShortCircuit-2", touchEvent);
++        pApp->event(&touchEvent);
++#if 0
++        if (!e->synthetic() && !touchEvent.isAccepted() && qApp->testAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents)) {
++            // exclude devices which generate their own mouse events
++            if (!(touchEvent.device()->capabilities().testFlag(QInputDevice::Capability::MouseEmulation))) {
++
++                QEvent::Type mouseEventType = QEvent::MouseMove;
++                Qt::MouseButton button = Qt::NoButton;
++                Qt::MouseButtons buttons = Qt::LeftButton;
++                if (eventType == QEvent::TouchBegin || m_fakeMouseSourcePointId < 0) {
++                    m_fakeMouseSourcePointId = touchEvent.point(0).id();
++                    qCDebug(lcPtrDispatch) << "synthesizing mouse events from touchpoint" << m_fakeMouseSourcePointId;
++                }
++                if (m_fakeMouseSourcePointId >= 0) {
++                    const auto *touchPoint = touchEvent.pointById(m_fakeMouseSourcePointId);
++                    if (touchPoint) {
++                        switch (touchPoint->state()) {
++                        case QEventPoint::State::Pressed:
++                            mouseEventType = QEvent::MouseButtonPress;
++                            button = Qt::LeftButton;
++                            break;
++                        case QEventPoint::State::Released:
++                            mouseEventType = QEvent::MouseButtonRelease;
++                            button = Qt::LeftButton;
++                            buttons = Qt::NoButton;
++                            Q_ASSERT(m_fakeMouseSourcePointId == touchPoint->id());
++                            m_fakeMouseSourcePointId = -1;
++                            break;
++                        default:
++                            break;
++                        }
++                        if (touchPoint->state() != QEventPoint::State::Released) {
++                            self->synthesizedMousePoints.insert(window, SynthesizedMouseData(
++                                                                    touchPoint->position(), touchPoint->globalPosition(), window));
++                        }
++                        // All touch events that are not accepted by the application will be translated to
++                        // left mouse button events instead (see AA_SynthesizeMouseForUnhandledTouchEvents docs).
++                        // TODO why go through QPA?  Why not just send a QMouseEvent right from here?
++                        QWindowSystemInterfacePrivate::MouseEvent fake(window, e->timestamp,
++                                                                       window->mapFromGlobal(touchPoint->globalPosition().toPoint()),
++                                                                       touchPoint->globalPosition(),
++                                                                       buttons,
++                                                                       e->modifiers,
++                                                                       button,
++                                                                       mouseEventType,
++                                                                       Qt::MouseEventSynthesizedByQt,
++                                                                       false,
++                                                                       device);
++                        fake.flags |= QWindowSystemInterfacePrivate::WindowSystemEvent::Synthetic;
++                        // TODO
++                        //processMouseEvent(&fake);
++                    }
++                }
++                if (eventType == QEvent::TouchEnd)
++                    self->synthesizedMousePoints.clear();
++            }
++        }
++#endif
++    }
++#if 0
++    // Remove released points from QPointingDevicePrivate::activePoints only after the event is
++    // delivered.  Widgets and Qt Quick are allowed to access them at any time before this.
++    for (const QEventPoint &touchPoint : e->points) {
++        if (touchPoint.state() == QEventPoint::State::Released)
++            devPriv->removePointById(touchPoint.id());
++    }
++#endif
++}
++
+ void QGuiApplicationPrivate::processScreenOrientationChange(QWindowSystemInterfacePrivate::ScreenOrientationEvent *e)
+ {
+     // This operation only makes sense after the QGuiApplication constructor runs
+diff --git a/src/gui/kernel/qguiapplication.h b/src/gui/kernel/qguiapplication.h
+index 14bce88..29bbcfa 100644
+--- a/src/gui/kernel/qguiapplication.h
++++ b/src/gui/kernel/qguiapplication.h
+@@ -22,6 +22,7 @@ class QPlatformIntegration;
+ class QPalette;
+ class QScreen;
+ class QStyleHints;
++class QElapsedTimer;
+ 
+ #if defined(qApp)
+ #undef qApp
+@@ -55,6 +56,8 @@ public:
+ #endif
+     ~QGuiApplication();
+ 
++    static const QElapsedTimer &getPerformanceTimer();
++    static qint64 usecsElapsed();
+     static void setApplicationDisplayName(const QString &name);
+     static QString applicationDisplayName();
+ 
+diff --git a/src/gui/kernel/qguiapplication_p.h b/src/gui/kernel/qguiapplication_p.h
+index 40caf3b..929ab05 100644
+--- a/src/gui/kernel/qguiapplication_p.h
++++ b/src/gui/kernel/qguiapplication_p.h
+@@ -105,6 +105,7 @@ public:
+     static void processKeyEvent(QWindowSystemInterfacePrivate::KeyEvent *e);
+     static void processWheelEvent(QWindowSystemInterfacePrivate::WheelEvent *e);
+     static void processTouchEvent(QWindowSystemInterfacePrivate::TouchEvent *e);
++    static void processTouchEventShortCircuit(QWindowSystemInterfacePrivate::TouchEvent *e);
+ 
+     static void processCloseEvent(QWindowSystemInterfacePrivate::CloseEvent *e);
+ 
+diff --git a/src/gui/kernel/qwindow.h b/src/gui/kernel/qwindow.h
+index a5ec477..aaf52ce 100644
+--- a/src/gui/kernel/qwindow.h
++++ b/src/gui/kernel/qwindow.h
+@@ -151,6 +151,7 @@ public:
+     Qt::WindowFlags flags() const;
+     void setFlag(Qt::WindowType, bool on = true);
+     Qt::WindowType type() const;
++    virtual uint64_t dirtyFlags() const { return 0; }
+ 
+     QString title() const;
+ 
+diff --git a/src/gui/kernel/qwindowsysteminterface.cpp b/src/gui/kernel/qwindowsysteminterface.cpp
+index 48dc5fe..a849a20 100644
+--- a/src/gui/kernel/qwindowsysteminterface.cpp
++++ b/src/gui/kernel/qwindowsysteminterface.cpp
+@@ -684,14 +684,14 @@ QWindowSystemInterfacePrivate::toNativeTouchPoint(const QEventPoint &pt, const Q
+ }
+ 
+ QT_DEFINE_QPA_EVENT_HANDLER(bool, handleTouchEvent, QWindow *window, const QPointingDevice *device,
+-                                              const QList<TouchPoint> &points, Qt::KeyboardModifiers mods)
++                                              const QList<TouchPoint> &points, Qt::KeyboardModifiers mods, quint64 usecTimestamp)
+ {
+     unsigned long time = QWindowSystemInterfacePrivate::eventTime.elapsed();
+-    return handleTouchEvent<Delivery>(window, time, device, points, mods);
++    return handleTouchEvent<Delivery>(window, time, device, points, mods, usecTimestamp);
+ }
+ 
+ QT_DEFINE_QPA_EVENT_HANDLER(bool, handleTouchEvent, QWindow *window, ulong timestamp, const QPointingDevice *device,
+-                                              const QList<TouchPoint> &points, Qt::KeyboardModifiers mods)
++                                              const QList<TouchPoint> &points, Qt::KeyboardModifiers mods, quint64 usecTimestamp)
+ {
+     if (!points.size()) // Touch events must have at least one point
+         return false;
+@@ -703,8 +703,17 @@ QT_DEFINE_QPA_EVENT_HANDLER(bool, handleTouchEvent, QWindow *window, ulong times
+     QList<QEventPoint> touchPoints =
+             QWindowSystemInterfacePrivate::fromNativeTouchPoints(points, window, &type);
+ 
++    // Disable unless positively enabled via env var
++    static bool shortCircuitEnabled = (getenv("QT_TOUCH_EVENT_SHORTCUT")!=NULL && atoi(getenv("QT_TOUCH_EVENT_SHORTCUT"))!=0);
++    if (shortCircuitEnabled) {
++        // Experimental!  Allow short circuiting main thread and directly passing to application for optimized performance
++        QWindowSystemInterfacePrivate::TouchEvent event(window, timestamp, type, device, touchPoints, mods, usecTimestamp);
++        QGuiApplicationPrivate::processTouchEventShortCircuit(&event);
++    }
++
++    
+     return handleWindowSystemEvent<QWindowSystemInterfacePrivate::TouchEvent, Delivery>(window,
+-        timestamp, type, device, touchPoints, mods);
++        timestamp, type, device, touchPoints, mods, usecTimestamp);
+ }
+ 
+ QT_DEFINE_QPA_EVENT_HANDLER(bool, handleTouchCancelEvent, QWindow *window, const QPointingDevice *device,
+diff --git a/src/gui/kernel/qwindowsysteminterface.h b/src/gui/kernel/qwindowsysteminterface.h
+index 004019a..2ed734f 100644
+--- a/src/gui/kernel/qwindowsysteminterface.h
++++ b/src/gui/kernel/qwindowsysteminterface.h
+@@ -154,10 +154,10 @@ public:
+ 
+     template<typename Delivery = QWindowSystemInterface::DefaultDelivery>
+     static bool handleTouchEvent(QWindow *window, const QPointingDevice *device,
+-                                 const QList<struct TouchPoint> &points, Qt::KeyboardModifiers mods = Qt::NoModifier);
++                                 const QList<struct TouchPoint> &points, Qt::KeyboardModifiers mods = Qt::NoModifier, quint64 usecTimestamp = 0);
+     template<typename Delivery = QWindowSystemInterface::DefaultDelivery>
+     static bool handleTouchEvent(QWindow *window, ulong timestamp, const QPointingDevice *device,
+-                                 const QList<struct TouchPoint> &points, Qt::KeyboardModifiers mods = Qt::NoModifier);
++                                 const QList<struct TouchPoint> &points, Qt::KeyboardModifiers mods = Qt::NoModifier, quint64 usecTimestamp = 0);
+     template<typename Delivery = QWindowSystemInterface::DefaultDelivery>
+     static bool handleTouchCancelEvent(QWindow *window, const QPointingDevice *device, Qt::KeyboardModifiers mods = Qt::NoModifier);
+     template<typename Delivery = QWindowSystemInterface::DefaultDelivery>
+diff --git a/src/gui/kernel/qwindowsysteminterface_p.h b/src/gui/kernel/qwindowsysteminterface_p.h
+index 5aa4d17..24589f5 100644
+--- a/src/gui/kernel/qwindowsysteminterface_p.h
++++ b/src/gui/kernel/qwindowsysteminterface_p.h
+@@ -274,10 +274,11 @@ public:
+     class TouchEvent : public PointerEvent {
+     public:
+         TouchEvent(QWindow *w, ulong time, QEvent::Type t, const QPointingDevice *device,
+-                   const QList<QEventPoint> &p, Qt::KeyboardModifiers mods)
+-            : PointerEvent(w, time, Touch, mods, device), points(p), touchType(t) { }
++                   const QList<QEventPoint> &p, Qt::KeyboardModifiers mods, quint64 usec = 0)
++            : PointerEvent(w, time, Touch, mods, device), points(p), touchType(t), usecTimestamp(usec) { }
+         QList<QEventPoint> points;
+         QEvent::Type touchType;
++        quint64 usecTimestamp;
+     };
+ 
+     class ScreenOrientationEvent : public WindowSystemEvent {
+diff --git a/src/gui/painting/qbackingstore.cpp b/src/gui/painting/qbackingstore.cpp
+index f609cdd..76451f1 100644
+--- a/src/gui/painting/qbackingstore.cpp
++++ b/src/gui/painting/qbackingstore.cpp
+@@ -192,7 +192,7 @@ void QBackingStore::endPaint()
+ 
+     You should call this function after ending painting with endPaint().
+ */
+-void QBackingStore::flush(const QRegion &region, QWindow *window, const QPoint &offset)
++void QBackingStore::flush(const QRegion &region, QWindow *window, const QPoint &offset, const QList<QPair<QRect,uint64_t> > &flags)
+ {
+     QWindow *topLevelWindow = this->window();
+ 
+@@ -219,7 +219,7 @@ void QBackingStore::flush(const QRegion &region, QWindow *window, const QPoint &
+         Q_ASSERT(qMax(qAbs(diff.x()), qAbs(diff.y())) <= 1);
+         nativeRegion.translate(diff);
+     }
+-    handle()->flush(window, nativeRegion, nativeOffset);
++    handle()->flush(window, nativeRegion, nativeOffset, flags);
+ }
+ 
+ /*!
+diff --git a/src/gui/painting/qbackingstore.h b/src/gui/painting/qbackingstore.h
+index 3673d66..9f1bb75 100644
+--- a/src/gui/painting/qbackingstore.h
++++ b/src/gui/painting/qbackingstore.h
+@@ -30,7 +30,8 @@ public:
+ 
+     QPaintDevice *paintDevice();
+ 
+-    void flush(const QRegion &region, QWindow *window = nullptr, const QPoint &offset = QPoint());
++    //void flush(const QRegion &region, QWindow *window = nullptr, const QPoint &offset = QPoint());
++    void flush(const QRegion &region, QWindow *window = nullptr, const QPoint &offset = QPoint(), const QList<QPair<QRect,uint64_t> > &flags = QList<QPair<QRect,uint64_t> >());
+ 
+     void resize(const QSize &size);
+     QSize size() const;
+diff --git a/src/gui/painting/qplatformbackingstore.cpp b/src/gui/painting/qplatformbackingstore.cpp
+index 82e7778..f4bdc02 100644
+--- a/src/gui/painting/qplatformbackingstore.cpp
++++ b/src/gui/painting/qplatformbackingstore.cpp
+@@ -189,6 +189,15 @@ void QPlatformBackingStore::flush(QWindow *window, const QRegion &region, const
+     Q_UNUSED(offset);
+ }
+ 
++void QPlatformBackingStore::flush(QWindow *window, const QRegion &region, const QPoint &offset, const QList<QPair<QRect,uint64_t> > &flags)
++{
++    Q_UNUSED(window);
++    Q_UNUSED(region);
++    Q_UNUSED(offset);
++    Q_UNUSED(flags);
++}
++
++
+ /*!
+     Flushes the given \a region from the specified \a window, and compositing
+     it with the specified \a textures list.
+diff --git a/src/gui/painting/qplatformbackingstore.h b/src/gui/painting/qplatformbackingstore.h
+index 4045357..dbd71a6 100644
+--- a/src/gui/painting/qplatformbackingstore.h
++++ b/src/gui/painting/qplatformbackingstore.h
+@@ -141,6 +141,7 @@ public:
+     virtual QPaintDevice *paintDevice() = 0;
+ 
+     virtual void flush(QWindow *window, const QRegion &region, const QPoint &offset);
++    virtual void flush(QWindow *window, const QRegion &region, const QPoint &offset, const QList<QPair<QRect,uint64_t> > &flags);
+ 
+     virtual FlushResult rhiFlush(QWindow *window,
+                                  qreal sourceDevicePixelRatio,
+diff --git a/src/gui/text/qabstracttextdocumentlayout.h b/src/gui/text/qabstracttextdocumentlayout.h
+index dfafb10..7020583 100644
+--- a/src/gui/text/qabstracttextdocumentlayout.h
++++ b/src/gui/text/qabstracttextdocumentlayout.h
+@@ -58,7 +58,9 @@ public:
+ 
+     virtual QRectF frameBoundingRect(QTextFrame *frame) const = 0;
+     virtual QRectF blockBoundingRect(const QTextBlock &block) const = 0;
+-
++    virtual QSizeF getEllipsisPos() const = 0;
++    virtual bool getElided() const = 0;
++    virtual int lineCount() const = 0;
+     void setPaintDevice(QPaintDevice *device);
+     QPaintDevice *paintDevice() const;
+ 
+diff --git a/src/gui/text/qfont.cpp b/src/gui/text/qfont.cpp
+index 4cf63a2..cd448c9 100644
+--- a/src/gui/text/qfont.cpp
++++ b/src/gui/text/qfont.cpp
+@@ -235,12 +235,12 @@ extern QRecursiveMutex *qt_fontdatabase_mutex();
+ 
+ #define QT_FONT_ENGINE_FROM_DATA(data, script) data->engines[script]
+ 
+-QFontEngine *QFontPrivate::engineForScript(int script) const
++QFontEngine *QFontPrivate::engineForScript(int script, bool force) const
+ {
+     QMutexLocker locker(qt_fontdatabase_mutex());
+     if (script <= QChar::Script_Latin)
+         script = QChar::Script_Common;
+-    if (engineData && engineData->fontCacheId != QFontCache::instance()->id()) {
++    if (engineData && engineData->fontCacheId != QFontCache::instance()->id() || (engineData && force)) {
+         // throw out engineData that came from a different thread
+         if (!engineData->ref.deref())
+             delete engineData;
+@@ -2205,6 +2205,19 @@ void QFont::cacheStatistics()
+ }
+ 
+ 
++int QFont::leading() const
++{
++    return d->request.forceLeading;
++}
++
++void QFont::setLeading(int leading)
++{
++    d->request.forceLeading = leading;
++    QFontEngine *engine = d->engineForScript(QChar::Script_Common, true);
++    Q_ASSERT(engine != 0);
++    engine->setLeading(leading);
++}
++
+ extern QStringList qt_fallbacksForFamily(const QString &family, QFont::Style style,
+                                          QFont::StyleHint styleHint, QChar::Script script);
+ 
+diff --git a/src/gui/text/qfont.h b/src/gui/text/qfont.h
+index 7fb591b..c05cb6a 100644
+--- a/src/gui/text/qfont.h
++++ b/src/gui/text/qfont.h
+@@ -243,6 +243,9 @@ public:
+     QT_DEPRECATED_VERSION_X_6_0("Use weight() instead") int legacyWeight() const;
+ #endif
+ 
++    int leading() const;
++    void setLeading(int);
++
+ private:
+     explicit QFont(QFontPrivate *);
+ 
+diff --git a/src/gui/text/qfont_p.h b/src/gui/text/qfont_p.h
+index 13738bb..f974527 100644
+--- a/src/gui/text/qfont_p.h
++++ b/src/gui/text/qfont_p.h
+@@ -47,7 +47,8 @@ struct QFontDef
+           fixedPitch(false),
+           ignorePitch(true),
+           fixedPitchComputed(0),
+-          reserved(0)
++          reserved(0),
++          forceLeading(-1)
+     {
+     }
+ 
+@@ -71,6 +72,7 @@ struct QFontDef
+     uint ignorePitch : 1;
+     uint fixedPitchComputed : 1; // for Mac OS X only
+     uint reserved : 11; // for future extensions
++    int forceLeading;
+ 
+     bool exactMatch(const QFontDef &other) const;
+     bool operator==(const QFontDef &other) const
+@@ -99,6 +101,7 @@ struct QFontDef
+         if (styleName != other.styleName)
+             return styleName < other.styleName;
+         if (hintingPreference != other.hintingPreference) return hintingPreference < other.hintingPreference;
++        if (forceLeading != other.forceLeading) return forceLeading < other.forceLeading;
+ 
+ 
+         if (ignorePitch != other.ignorePitch) return ignorePitch < other.ignorePitch;
+@@ -147,7 +150,7 @@ public:
+     QFontPrivate(const QFontPrivate &other);
+     ~QFontPrivate();
+ 
+-    QFontEngine *engineForScript(int script) const;
++    QFontEngine *engineForScript(int script, bool force = false) const;
+     void alterCharForCapitalization(QChar &c) const;
+ 
+     QAtomicInt ref;
+diff --git a/src/gui/text/qfontengine.cpp b/src/gui/text/qfontengine.cpp
+index 5035b61..548070d 100644
+--- a/src/gui/text/qfontengine.cpp
++++ b/src/gui/text/qfontengine.cpp
+@@ -2174,6 +2174,11 @@ QFixed QFontEngineMulti::leading() const
+     return engine(0)->leading();
+ }
+ 
++void QFontEngineMulti::setLeading(int leading)
++{
++    engine(0)->setLeading(leading);
++}
++
+ QFixed QFontEngineMulti::xHeight() const
+ {
+     return engine(0)->xHeight();
+diff --git a/src/gui/text/qfontengine_p.h b/src/gui/text/qfontengine_p.h
+index dbad0d9..37b7e1d 100644
+--- a/src/gui/text/qfontengine_p.h
++++ b/src/gui/text/qfontengine_p.h
+@@ -198,6 +198,7 @@ public:
+     virtual QFixed capHeight() const = 0;
+     virtual QFixed descent() const;
+     virtual QFixed leading() const;
++    virtual void setLeading(int) { };
+     virtual QFixed xHeight() const;
+     virtual QFixed averageCharWidth() const;
+ 
+@@ -443,6 +444,7 @@ public:
+     virtual QFixed capHeight() const override;
+     virtual QFixed descent() const override;
+     virtual QFixed leading() const override;
++    virtual void setLeading(int);
+     virtual QFixed xHeight() const override;
+     virtual QFixed averageCharWidth() const override;
+     virtual QImage alphaMapForGlyph(glyph_t) override;
+diff --git a/src/gui/text/qtextdocument.cpp b/src/gui/text/qtextdocument.cpp
+index a667542..10ef682 100644
+--- a/src/gui/text/qtextdocument.cpp
++++ b/src/gui/text/qtextdocument.cpp
+@@ -1720,6 +1720,66 @@ QSizeF QTextDocument::pageSize() const
+     return d->pageSize;
+ }
+ 
++void QTextDocument::setEllipsisWidth(qreal width)
++{
++    Q_D(QTextDocument);
++    d->ellipsisWidth = width;
++    if (d->lout) {
++        d->lout->documentChanged(0, 0, d->length());
++    }
++}
++
++qreal QTextDocument::ellipsisWidth() const
++{
++    Q_D(const QTextDocument);
++    return d->ellipsisWidth;
++}
++
++void QTextDocument::setSuffixWidth(qreal width)
++{
++    Q_D(QTextDocument);
++    d->suffixWidth = width;
++    if (d->lout) {
++        d->lout->documentChanged(0, 0, d->length());
++    }
++}
++
++qreal QTextDocument::suffixWidth() const
++{
++    Q_D(const QTextDocument);
++    return d->suffixWidth;
++}
++
++void QTextDocument::setSingleLinePages(bool single)
++{
++    Q_D(QTextDocument);
++    d->maxLines = (single ? 1 : 0);
++    if (d->lout) {
++        d->lout->documentChanged(0, 0, d->length());
++    }
++}
++
++bool QTextDocument::singleLinePages() const
++{
++     Q_D(const QTextDocument);
++     return (d->maxLines > 0) ? true : false;
++}
++
++void QTextDocument::setMaxLines(int lines)
++{
++    Q_D(QTextDocument);
++    d->maxLines = lines;
++    if (d->lout) {
++        d->lout->documentChanged(0, 0, d->length());
++    }
++}
++
++int QTextDocument::maxLines() const
++{
++    Q_D(const QTextDocument);
++    return d->maxLines;
++}
++
+ /*!
+   returns the number of pages in this document.
+ */
+diff --git a/src/gui/text/qtextdocument.h b/src/gui/text/qtextdocument.h
+index 01ed978..1a7789f 100644
+--- a/src/gui/text/qtextdocument.h
++++ b/src/gui/text/qtextdocument.h
+@@ -60,6 +60,10 @@ class Q_GUI_EXPORT QTextDocument : public QObject
+     Q_PROPERTY(bool undoRedoEnabled READ isUndoRedoEnabled WRITE setUndoRedoEnabled)
+     Q_PROPERTY(bool modified READ isModified WRITE setModified DESIGNABLE false)
+     Q_PROPERTY(QSizeF pageSize READ pageSize WRITE setPageSize)
++    Q_PROPERTY(qreal ellipsisWidth READ ellipsisWidth WRITE setEllipsisWidth)
++    Q_PROPERTY(qreal suffixWidth READ suffixWidth WRITE setSuffixWidth)
++    Q_PROPERTY(bool singleLinePages READ singleLinePages WRITE setSingleLinePages)
++    Q_PROPERTY(int maxLines READ maxLines WRITE setMaxLines)
+     Q_PROPERTY(QFont defaultFont READ defaultFont WRITE setDefaultFont)
+     Q_PROPERTY(bool useDesignMetrics READ useDesignMetrics WRITE setUseDesignMetrics)
+     Q_PROPERTY(bool layoutEnabled READ isLayoutEnabled WRITE setLayoutEnabled)
+@@ -186,6 +190,16 @@ public:
+ 
+     bool isModified() const;
+ 
++    void setEllipsisWidth(qreal width);
++    qreal ellipsisWidth() const;
++    void setSingleLinePages(bool single);
++    bool singleLinePages() const;
++    void setMaxLines(int lines);
++    int maxLines() const;
++    void setSuffixWidth(qreal width);
++    qreal suffixWidth() const;
++
++
+ #ifndef QT_NO_PRINTER
+     void print(QPagedPaintDevice *printer) const;
+ #endif
+diff --git a/src/gui/text/qtextdocument_p.cpp b/src/gui/text/qtextdocument_p.cpp
+index 9e630f3..ee1e394 100644
+--- a/src/gui/text/qtextdocument_p.cpp
++++ b/src/gui/text/qtextdocument_p.cpp
+@@ -181,6 +181,9 @@ QTextDocumentPrivate::QTextDocumentPrivate()
+     needsEnsureMaximumBlockCount = false;
+     unreachableCharacterCount = 0;
+     lastBlockCount = 0;
++    ellipsisWidth = 0;
++    suffixWidth = 0;
++    maxLines = 0;
+ }
+ 
+ void QTextDocumentPrivate::init()
+diff --git a/src/gui/text/qtextdocument_p.h b/src/gui/text/qtextdocument_p.h
+index 84a7969..6d616a5 100644
+--- a/src/gui/text/qtextdocument_p.h
++++ b/src/gui/text/qtextdocument_p.h
+@@ -351,9 +351,12 @@ public:
+     uint needsEnsureMaximumBlockCount : 1;
+     uint blockCursorAdjustment : 1;
+     QSizeF pageSize;
++    qreal ellipsisWidth;
++    qreal suffixWidth;
+     QString title;
+     QString url;
+     QString cssMedia;
++    int maxLines;
+     qreal indentWidth;
+     qreal documentMargin;
+     QUrl baseUrl;
+diff --git a/src/gui/text/qtextdocumentlayout.cpp b/src/gui/text/qtextdocumentlayout.cpp
+index 2549605..522ee04 100644
+--- a/src/gui/text/qtextdocumentlayout.cpp
++++ b/src/gui/text/qtextdocumentlayout.cpp
+@@ -500,6 +500,12 @@ public:
+     int lastPageCount;
+     qreal idealWidth;
+     bool contentHasAlignment;
++    QFixed ellipsisWidth;
++    QSizeF ellipsisPos;
++    bool elided;
++    QFixed suffixWidth;
++    int maxLines;
++    int lineCount;
+ 
+     QFixed blockIndent(const QTextBlockFormat &blockFormat) const;
+ 
+@@ -572,7 +578,11 @@ QTextDocumentLayoutPrivate::QTextDocumentLayoutPrivate()
+       cursorWidth(1),
+       currentLazyLayoutPosition(-1),
+       lazyLayoutStepSize(1000),
+-      lastPageCount(-1)
++      lastPageCount(-1),
++      ellipsisWidth(0),
++      suffixWidth(0),
++      maxLines(0),
++      lineCount(0)
+ {
+     showLayoutProgress = true;
+     insideDocumentChange = false;
+@@ -3412,6 +3422,8 @@ void QTextDocumentLayoutPrivate::layoutBlock(const QTextBlock &bl, int blockPosi
+     if (!bl.isVisible())
+         return;
+ 
++    ellipsisPos = QSizeF();
++    elided = false;
+     QTextLayout *tl = bl.layout();
+     const int blockLength = bl.length();
+ 
+@@ -3473,34 +3485,55 @@ void QTextDocumentLayoutPrivate::layoutBlock(const QTextBlock &bl, int blockPosi
+         QFixed bottom;
+ 
+         tl->beginLayout();
+-        bool firstLine = true;
++        int lastLine = 0;
++        int linesOnPage = 1;
++        int suffixStage = 0;
++        QFixed lastY = cy;
+         while (1) {
++            if (lastLine) {
++                lastLine--;
++            }
+             QTextLine line = tl->createLine();
+-            if (!line.isValid())
+-                break;
+-            line.setLeadingIncluded(true);
++            if (!line.isValid()) { 
++                if (suffixWidth > 0 && !suffixStage) {
++                    tl->removeLine();
++                    layoutStruct->y = lastY;
++                    line = tl->createLine();
++                    suffixStage = 1;
++                }
++                else {
++                    break;
++                }
++            }
++            line.setLeadingIncluded(maxLines != 1);
+ 
+             QFixed left, right;
+             floatMargins(layoutStruct->y, layoutStruct, &left, &right);
+             left = qMax(left, l);
+             right = qMin(right, r);
+             QFixed text_indent;
+-            if (firstLine) {
++            if (!line.lineNumber()) {
+                 text_indent = QFixed::fromReal(blockFormat.textIndent());
+                 if (dir == Qt::LeftToRight)
+                     left += text_indent;
+                 else
+                     right -= text_indent;
+-                firstLine = false;
+             }
+ //         qDebug() << "layout line y=" << currentYPos << "left=" << left << "right=" <<right;
+-
++            QFixed targetWidth(right - left);
++            if (lastLine == 2) {
++                targetWidth -= ellipsisWidth + suffixWidth;
++                suffixStage = 2;
++            }
++            if (suffixStage == 1) {
++                targetWidth -= suffixWidth;
++            }
+             if (fixedColumnWidth != -1)
+-                line.setNumColumns(fixedColumnWidth, (right - left).toReal());
++                line.setNumColumns(fixedColumnWidth, targetWidth.toReal());
+             else
+-                line.setLineWidth((right - left).toReal());
++                line.setLineWidth(targetWidth.toReal());
+ 
+-//        qDebug() << "layoutBlock; layouting line with width" << right - left << "->textWidth" << line.textWidth();
++//        qDebug() << "layoutBlock; layouting line with width" << targetWidth << "->textWidth" << line.textWidth();
+             floatMargins(layoutStruct->y, layoutStruct, &left, &right);
+             left = qMax(left, l);
+             right = qMin(right, r);
+@@ -3509,12 +3542,12 @@ void QTextDocumentLayoutPrivate::layoutBlock(const QTextBlock &bl, int blockPosi
+             else
+                 right -= text_indent;
+ 
+-            if (fixedColumnWidth == -1 && QFixed::fromReal(line.naturalTextWidth()) > right-left) {
++            if (fixedColumnWidth == -1 && QFixed::fromReal(line.naturalTextWidth()) > targetWidth) {
+                 // float has been added in the meantime, redo
+                 layoutStruct->pendingFloats.clear();
+ 
+-                line.setLineWidth((right-left).toReal());
+-                if (QFixed::fromReal(line.naturalTextWidth()) > right-left) {
++                line.setLineWidth(targetWidth.toReal());
++                if (QFixed::fromReal(line.naturalTextWidth()) > targetWidth) {
+                     if (haveWordOrAnyWrapMode) {
+                         option.setWrapMode(QTextOption::WrapAnywhere);
+                         tl->setTextOption(option);
+@@ -3530,7 +3563,7 @@ void QTextDocumentLayoutPrivate::layoutBlock(const QTextBlock &bl, int blockPosi
+                         left += text_indent;
+                     else
+                         right -= text_indent;
+-                    line.setLineWidth(qMax<qreal>(line.naturalTextWidth(), (right-left).toReal()));
++                    line.setLineWidth(qMax<qreal>(line.naturalTextWidth(), targetWidth.toReal()));
+ 
+                     if (haveWordOrAnyWrapMode) {
+                         option.setWrapMode(QTextOption::WordWrap);
+@@ -3545,13 +3578,21 @@ void QTextDocumentLayoutPrivate::layoutBlock(const QTextBlock &bl, int blockPosi
+                             qreal(q->paintDevice()->logicalDpiY()) / qreal(qt_defaultDpi()) : 1;
+             getLineHeightParams(blockFormat, line, scaling, &lineAdjustment, &lineBreakHeight, &lineHeight, &lineBottom);
+ 
+-            while (layoutStruct->pageHeight > 0 && layoutStruct->absoluteY() + lineBreakHeight > layoutStruct->pageBottom &&
+-                layoutStruct->contentHeight() >= lineBreakHeight) {
++            if (!lastLine) {
++                lastLine = ((linesOnPage > 1 && layoutStruct->pageHeight > 0 && ((maxLines && linesOnPage > maxLines) || layoutStruct->absoluteY() + lineBreakHeight > layoutStruct->pageBottom)) ? ((ellipsisWidth > 0) ? 3 : 1) : 0);
++            }
++
++            if (lastLine == 1) {
++                if (!lineCount) {
++                    lineCount = tl->lineCount() - 1;
++                }
++
+                 if (layoutStruct->pageHeight == QFIXED_MAX) {
+                     layoutStruct->y = QFIXED_MAX - layoutStruct->frameY;
+                     break;
+                 }
+ 
++                linesOnPage = 1;
+                 layoutStruct->newPage();
+ 
+                 floatMargins(layoutStruct->y, layoutStruct, &left, &right);
+@@ -3562,21 +3603,36 @@ void QTextDocumentLayoutPrivate::layoutBlock(const QTextBlock &bl, int blockPosi
+                 else
+                     right -= text_indent;
+             }
+-
+-            line.setPosition(QPointF((left - layoutStruct->x_left).toReal(), (layoutStruct->y - cy - lineAdjustment).toReal()));
+-            bottom = layoutStruct->y + lineBottom;
+-            layoutStruct->y += lineHeight;
+-            layoutStruct->contentsWidth
+-                = qMax<QFixed>(layoutStruct->contentsWidth, QFixed::fromReal(line.x() + line.naturalTextWidth()) + totalRightMargin);
+-
+-            // position floats
+-            for (int i = 0; i < layoutStruct->pendingFloats.size(); ++i) {
+-                QTextFrame *f = layoutStruct->pendingFloats.at(i);
+-                positionFloat(f);
++            else {
++                linesOnPage++;
++            }
++            if (lastLine == 3) {
++                //remove the last two lines so that they can be redone
++                tl->removeLine();
++                tl->removeLine();
++                layoutStruct->y = lastY;
++            }
++            else {
++                line.setPosition(QPointF((left - layoutStruct->x_left).toReal(), (layoutStruct->y - cy - lineAdjustment).toReal()));
++                lastY = layoutStruct->y;
++                layoutStruct->y += lineHeight;
++                layoutStruct->contentsWidth
++                    = qMax<QFixed>(layoutStruct->contentsWidth, QFixed::fromReal(line.x() + line.naturalTextWidth()) + totalRightMargin);
++
++                // position floats
++                for (int i = 0; i < layoutStruct->pendingFloats.size(); ++i) {
++                    QTextFrame *f = layoutStruct->pendingFloats.at(i);
++                    positionFloat(f);
++                }
++                if (!layoutStruct->currentPage()) {
++               		ellipsisPos = QSizeF(line.horizontalAdvance(), line.rect().top());
++                    if (lastLine == 2) {
++                        elided = true;
++                    }
++                }
+             }
+             layoutStruct->pendingFloats.clear();
+         }
+-        layoutStruct->y = qMax(layoutStruct->y, bottom);
+         tl->endLayout();
+     } else {
+         const int cnt = tl->lineCount();
+@@ -3620,7 +3676,9 @@ void QTextDocumentLayoutPrivate::layoutBlock(const QTextBlock &bl, int blockPosi
+             }
+         }
+     }
+-
++    if (!lineCount) {
++        lineCount = tl->lineCount();
++    }
+     // ### doesn't take floats into account. would need to do it per line. but how to retrieve then? (Simon)
+     const QFixed margins = totalLeftMargin + totalRightMargin;
+     layoutStruct->minimumWidth = qMax(layoutStruct->minimumWidth, QFixed::fromReal(tl->minimumWidth()) + margins);
+@@ -3751,6 +3809,9 @@ void QTextDocumentLayout::documentChanged(int from, int oldLength, int length)
+ {
+     Q_D(QTextDocumentLayout);
+ 
++    d->ellipsisWidth = QFixed::fromReal(document()->ellipsisWidth());
++    d->suffixWidth = QFixed::fromReal(document()->suffixWidth());
++    d->maxLines = document()->maxLines();
+     QTextBlock blockIt = document()->findBlock(from);
+     QTextBlock endIt = document()->findBlock(qMax(0, from + length - 1));
+     if (endIt.isValid())
+@@ -4185,6 +4246,24 @@ qreal QTextDocumentLayoutPrivate::scaleToDevice(qreal value) const
+     return value * paintDevice->logicalDpiY() / qreal(qt_defaultDpi());
+ }
+ 
++QSizeF QTextDocumentLayout::getEllipsisPos() const
++{
++    Q_D(const QTextDocumentLayout);
++    return d->ellipsisPos;
++}
++
++bool QTextDocumentLayout::getElided() const
++{
++    Q_D(const QTextDocumentLayout);
++    return d->elided;
++}
++
++int QTextDocumentLayout::lineCount() const
++{
++    Q_D(const QTextDocumentLayout);
++    return d->lineCount;
++}
++
+ QFixed QTextDocumentLayoutPrivate::scaleToDevice(QFixed value) const
+ {
+     if (!paintDevice)
+diff --git a/src/gui/text/qtextdocumentlayout_p.h b/src/gui/text/qtextdocumentlayout_p.h
+index 9f21d8e..3cdc1b5 100644
+--- a/src/gui/text/qtextdocumentlayout_p.h
++++ b/src/gui/text/qtextdocumentlayout_p.h
+@@ -66,6 +66,9 @@ public:
+     qreal idealWidth() const;
+ 
+     bool contentHasAlignment() const;
++    virtual QSizeF getEllipsisPos() const;
++    virtual bool getElided() const;
++    virtual int lineCount() const;
+ 
+ protected:
+     void documentChanged(int from, int oldLength, int length) override;
+diff --git a/src/gui/text/qtextlayout.cpp b/src/gui/text/qtextlayout.cpp
+index 6113699..d7c83a6 100644
+--- a/src/gui/text/qtextlayout.cpp
++++ b/src/gui/text/qtextlayout.cpp
+@@ -816,6 +816,13 @@ QTextLine QTextLayout::createLine()
+     return QTextLine(l, d);
+ }
+ 
++void QTextLayout::removeLine()
++{
++    if (!d->lines.isEmpty()) {
++        d->lines.pop_back();
++    }
++}
++
+ /*!
+     Returns the number of lines in this text layout.
+ 
+diff --git a/src/gui/text/qtextlayout.h b/src/gui/text/qtextlayout.h
+index 5b1b64d..bfe0ea5 100644
+--- a/src/gui/text/qtextlayout.h
++++ b/src/gui/text/qtextlayout.h
+@@ -129,6 +129,7 @@ public:
+     void clearLayout();
+ 
+     QTextLine createLine();
++    void removeLine();
+ 
+     int lineCount() const;
+     QTextLine lineAt(int i) const;
+diff --git a/src/platformsupport/fbconvenience/qfbbackingstore.cpp b/src/platformsupport/fbconvenience/qfbbackingstore.cpp
+index 8443c77..25d9a05 100644
+--- a/src/platformsupport/fbconvenience/qfbbackingstore.cpp
++++ b/src/platformsupport/fbconvenience/qfbbackingstore.cpp
+@@ -24,12 +24,12 @@ QFbBackingStore::~QFbBackingStore()
+ {
+ }
+ 
+-void QFbBackingStore::flush(QWindow *window, const QRegion &region, const QPoint &offset)
++void QFbBackingStore::flush(QWindow *window, const QRegion &region, const QPoint &offset, const QList<QPair<QRect,uint64_t> > &flags)
+ {
+     Q_UNUSED(window);
+     Q_UNUSED(offset);
+ 
+-    (static_cast<QFbWindow *>(window->handle()))->repaint(region);
++    (static_cast<QFbWindow *>(window->handle()))->repaint(region, flags);
+ }
+ 
+ void QFbBackingStore::resize(const QSize &size, const QRegion &staticContents)
+diff --git a/src/platformsupport/fbconvenience/qfbbackingstore_p.h b/src/platformsupport/fbconvenience/qfbbackingstore_p.h
+index ead06bf..cb3cd6a 100644
+--- a/src/platformsupport/fbconvenience/qfbbackingstore_p.h
++++ b/src/platformsupport/fbconvenience/qfbbackingstore_p.h
+@@ -32,7 +32,7 @@ public:
+     ~QFbBackingStore();
+ 
+     QPaintDevice *paintDevice() override { return &mImage; }
+-    void flush(QWindow *window, const QRegion &region, const QPoint &offset) override;
++    void flush(QWindow *window, const QRegion &region, const QPoint &offset, const QList<QPair<QRect,uint64_t> > &flags) override;
+ 
+     void resize(const QSize &size, const QRegion &region) override;
+ 
+diff --git a/src/platformsupport/fbconvenience/qfbscreen.cpp b/src/platformsupport/fbconvenience/qfbscreen.cpp
+index e804488..a40524b 100644
+--- a/src/platformsupport/fbconvenience/qfbscreen.cpp
++++ b/src/platformsupport/fbconvenience/qfbscreen.cpp
+@@ -70,7 +70,8 @@ void QFbScreen::addWindow(QFbWindow *window)
+ void QFbScreen::removeWindow(QFbWindow *window)
+ {
+     mWindowStack.removeOne(window);
+-    setDirty(window->geometry());
++    setDirty(window->geometry(), window->window()->dirtyFlags());
++    doRedraw();
+     QWindow *w = topWindow();
+     QWindowSystemInterface::handleWindowActivated(w);
+     topWindowChanged(w);
+@@ -131,6 +132,12 @@ void QFbScreen::setDirty(const QRect &rect)
+     scheduleUpdate();
+ }
+ 
++void QFbScreen::setDirty(const QRect &rect, uint64_t flags)
++{
++    Q_UNUSED(flags);
++    setDirty(rect);
++}
++
+ void QFbScreen::scheduleUpdate()
+ {
+     if (!mUpdatePending) {
+diff --git a/src/platformsupport/fbconvenience/qfbscreen_p.h b/src/platformsupport/fbconvenience/qfbscreen_p.h
+index 82dd98f..0900ea8 100644
+--- a/src/platformsupport/fbconvenience/qfbscreen_p.h
++++ b/src/platformsupport/fbconvenience/qfbscreen_p.h
+@@ -66,6 +66,8 @@ public:
+ 
+ public slots:
+     virtual void setDirty(const QRect &rect);
++    virtual void setDirty(const QRect &rect, uint64_t flags);
++
+     void setPhysicalSize(const QSize &size);
+     void setGeometry(const QRect &rect);
+ 
+diff --git a/src/platformsupport/fbconvenience/qfbwindow.cpp b/src/platformsupport/fbconvenience/qfbwindow.cpp
+index 54716cc..c1fc49e 100644
+--- a/src/platformsupport/fbconvenience/qfbwindow.cpp
++++ b/src/platformsupport/fbconvenience/qfbwindow.cpp
+@@ -112,4 +112,10 @@ void QFbWindow::repaint(const QRegion &region)
+         platformScreen()->setDirty(rect.translated(topLeft));
+ }
+ 
++void QFbWindow::repaint(const QRegion &region, const QList<QPair<QRect,uint64_t>> &flags)
++{
++    Q_UNUSED(region);
++    Q_UNUSED(flags);
++}
++
+ QT_END_NAMESPACE
+diff --git a/src/platformsupport/fbconvenience/qfbwindow_p.h b/src/platformsupport/fbconvenience/qfbwindow_p.h
+index 8367a10..885d674 100644
+--- a/src/platformsupport/fbconvenience/qfbwindow_p.h
++++ b/src/platformsupport/fbconvenience/qfbwindow_p.h
+@@ -46,7 +46,9 @@ public:
+ 
+     QFbScreen *platformScreen() const;
+ 
++
+     virtual void repaint(const QRegion&);
++    virtual void repaint(const QRegion&, const QList<QPair<QRect,uint64_t> > &flags);
+ 
+     void propagateSizeHints() override { }
+     bool setKeyboardGrabEnabled(bool) override { return false; }
+diff --git a/src/platformsupport/input/evdevkeyboard/qevdevkeyboardhandler.cpp b/src/platformsupport/input/evdevkeyboard/qevdevkeyboardhandler.cpp
+index 48fba79..6760819 100644
+--- a/src/platformsupport/input/evdevkeyboard/qevdevkeyboardhandler.cpp
++++ b/src/platformsupport/input/evdevkeyboard/qevdevkeyboardhandler.cpp
+@@ -40,6 +40,7 @@ Q_LOGGING_CATEGORY(qLcEvdevKeyMap, "qt.qpa.input.keymap")
+ 
+ // simple builtin US keymap
+ #include "qevdevkeyboard_defaultmap_p.h"
++#include "qevdevkeyboardmanager_p.h"
+ 
+ void QFdContainer::reset() noexcept
+ {
+@@ -48,11 +49,12 @@ void QFdContainer::reset() noexcept
+     m_fd = -1;
+ }
+ 
+-QEvdevKeyboardHandler::QEvdevKeyboardHandler(const QString &device, QFdContainer &fd, bool disableZap, bool enableCompose, const QString &keymapFile)
++QEvdevKeyboardHandler::QEvdevKeyboardHandler(const QString &device, QFdContainer &fd, bool disableZap, bool enableCompose, const QString &keymapFile, QEvdevEventHandler *eventHandler)
+     : m_device(device), m_fd(fd.release()), m_notify(nullptr),
+       m_modifiers(0), m_composing(0), m_dead_unicode(0xffff),
+       m_langLock(0), m_no_zap(disableZap), m_do_compose(enableCompose),
+-      m_keymap(0), m_keymap_size(0), m_keycompose(0), m_keycompose_size(0)
++      m_keymap(0), m_keymap_size(0), m_keycompose(0), m_keycompose_size(0),
++      m_eventHandler(eventHandler)
+ {
+     qCDebug(qLcEvdevKey) << "Create keyboard handler with for device" << device;
+ 
+@@ -75,7 +77,8 @@ QEvdevKeyboardHandler::~QEvdevKeyboardHandler()
+ 
+ std::unique_ptr<QEvdevKeyboardHandler> QEvdevKeyboardHandler::create(const QString &device,
+                                                      const QString &specification,
+-                                                     const QString &defaultKeymapFile)
++                                                     const QString &defaultKeymapFile,
++                                                     QEvdevEventHandler *eventHandler)
+ {
+     qCDebug(qLcEvdevKey, "Try to create keyboard handler for \"%ls\" \"%ls\"",
+             qUtf16Printable(device), qUtf16Printable(specification));
+@@ -117,7 +120,7 @@ std::unique_ptr<QEvdevKeyboardHandler> QEvdevKeyboardHandler::create(const QStri
+             ::ioctl(fd.get(), EVIOCSREP, kbdrep);
+         }
+ 
+-        return std::unique_ptr<QEvdevKeyboardHandler>(new QEvdevKeyboardHandler(device, fd, disableZap, enableCompose, keymapFile));
++        return std::unique_ptr<QEvdevKeyboardHandler>(new QEvdevKeyboardHandler(device, fd, disableZap, enableCompose, keymapFile, eventHandler));
+     } else {
+         qErrnoWarning("Cannot open keyboard input device '%ls'", qUtf16Printable(device));
+         return nullptr;
+@@ -173,6 +176,8 @@ void QEvdevKeyboardHandler::readKeycode()
+     n /= sizeof(buffer[0]);
+ 
+     for (int i = 0; i < n; ++i) {
++        if (buffer[i].type == EV_MSC && m_eventHandler)
++            m_eventHandler->handleMiscEvent(buffer[i].code, buffer[i].value);
+         if (buffer[i].type != EV_KEY)
+             continue;
+ 
+diff --git a/src/platformsupport/input/evdevkeyboard/qevdevkeyboardhandler_p.h b/src/platformsupport/input/evdevkeyboard/qevdevkeyboardhandler_p.h
+index ed437c0..a03437a 100644
+--- a/src/platformsupport/input/evdevkeyboard/qevdevkeyboardhandler_p.h
++++ b/src/platformsupport/input/evdevkeyboard/qevdevkeyboardhandler_p.h
+@@ -26,6 +26,8 @@ QT_BEGIN_NAMESPACE
+ 
+ class QSocketNotifier;
+ 
++class QEvdevEventHandler;
++
+ namespace QEvdevKeyboardMap {
+     const quint32 FileMagic = 0x514d4150; // 'QMAP'
+ 
+@@ -114,7 +116,7 @@ public:
+ class QEvdevKeyboardHandler : public QObject
+ {
+ public:
+-    QEvdevKeyboardHandler(const QString &device, QFdContainer &fd, bool disableZap, bool enableCompose, const QString &keymapFile);
++    QEvdevKeyboardHandler(const QString &device, QFdContainer &fd, bool disableZap, bool enableCompose, const QString &keymapFile, QEvdevEventHandler *eventHandler);
+     ~QEvdevKeyboardHandler();
+ 
+     enum KeycodeAction {
+@@ -138,7 +140,8 @@ public:
+ 
+     static std::unique_ptr<QEvdevKeyboardHandler> create(const QString &device,
+                                          const QString &specification,
+-                                         const QString &defaultKeymapFile = QString());
++                                         const QString &defaultKeymapFile = QString(),
++                                         QEvdevEventHandler *eventHandler = nullptr);
+ 
+     static Qt::KeyboardModifiers toQtModifiers(quint8 mod)
+     {
+@@ -188,6 +191,8 @@ private:
+ 
+     static const QEvdevKeyboardMap::Mapping s_keymap_default[];
+     static const QEvdevKeyboardMap::Composing s_keycompose_default[];
++
++    QEvdevEventHandler *m_eventHandler;
+ };
+ 
+ 
+diff --git a/src/platformsupport/input/evdevkeyboard/qevdevkeyboardmanager.cpp b/src/platformsupport/input/evdevkeyboard/qevdevkeyboardmanager.cpp
+index 43717c4..91a8b53 100644
+--- a/src/platformsupport/input/evdevkeyboard/qevdevkeyboardmanager.cpp
++++ b/src/platformsupport/input/evdevkeyboard/qevdevkeyboardmanager.cpp
+@@ -18,8 +18,8 @@ using namespace Qt::StringLiterals;
+ 
+ Q_DECLARE_LOGGING_CATEGORY(qLcEvdevKey)
+ 
+-QEvdevKeyboardManager::QEvdevKeyboardManager(const QString &key, const QString &specification, QObject *parent)
+-    : QObject(parent)
++QEvdevKeyboardManager::QEvdevKeyboardManager(const QString &key, const QString &specification, QObject *parent, QEvdevEventHandler *eventHandler)
++    : QObject(parent), m_eventHandler(eventHandler)
+ {
+     Q_UNUSED(key);
+ 
+@@ -59,7 +59,7 @@ QEvdevKeyboardManager::~QEvdevKeyboardManager()
+ void QEvdevKeyboardManager::addKeyboard(const QString &deviceNode)
+ {
+     qCDebug(qLcEvdevKey, "Adding keyboard at %ls", qUtf16Printable(deviceNode));
+-    auto keyboard = QEvdevKeyboardHandler::create(deviceNode, m_spec, m_defaultKeymapFile);
++    auto keyboard = QEvdevKeyboardHandler::create(deviceNode, m_spec, m_defaultKeymapFile, m_eventHandler);
+     if (keyboard) {
+         m_keyboards.add(deviceNode, std::move(keyboard));
+         updateDeviceCount();
+diff --git a/src/platformsupport/input/evdevkeyboard/qevdevkeyboardmanager_p.h b/src/platformsupport/input/evdevkeyboard/qevdevkeyboardmanager_p.h
+index d3f75f8..b2368be 100644
+--- a/src/platformsupport/input/evdevkeyboard/qevdevkeyboardmanager_p.h
++++ b/src/platformsupport/input/evdevkeyboard/qevdevkeyboardmanager_p.h
+@@ -26,10 +26,18 @@
+ 
+ QT_BEGIN_NAMESPACE
+ 
++
++class QEvdevEventHandler
++{
++public:
++    virtual void handleMiscEvent(quint32 code, quint32 value) = 0;
++};
++
++
+ class QEvdevKeyboardManager : public QObject
+ {
+ public:
+-    QEvdevKeyboardManager(const QString &key, const QString &specification, QObject *parent = nullptr);
++    QEvdevKeyboardManager(const QString &key, const QString &specification, QObject *parent = nullptr, QEvdevEventHandler *eventHandler = nullptr);
+     ~QEvdevKeyboardManager();
+ 
+     void loadKeymap(const QString &file);
+@@ -44,6 +52,7 @@ private:
+     QString m_spec;
+     QtInputSupport::DeviceHandlerList<QEvdevKeyboardHandler> m_keyboards;
+     QString m_defaultKeymapFile;
++    QEvdevEventHandler *m_eventHandler;
+ };
+ 
+ QT_END_NAMESPACE
+diff --git a/src/platformsupport/input/evdevtouch/qevdevtouchhandler.cpp b/src/platformsupport/input/evdevtouch/qevdevtouchhandler.cpp
+index 0937539..f25b106 100644
+--- a/src/platformsupport/input/evdevtouch/qevdevtouchhandler.cpp
++++ b/src/platformsupport/input/evdevtouch/qevdevtouchhandler.cpp
+@@ -14,6 +14,7 @@
+ #include <QtGui/private/qhighdpiscaling_p.h>
+ #include <QtGui/private/qguiapplication_p.h>
+ #include <QtGui/private/qpointingdevice_p.h>
++#include <qpa/qwindowsysteminterface.h>
+ 
+ #include <mutex>
+ 
+@@ -91,9 +92,17 @@ public:
+         int trackingId = -1;
+         int x = 0;
+         int y = 0;
++        int toolType = 0;
++        int mtDistance = 0;
+         int maj = -1;
+         int pressure = 0;
++        int distance = 0;
++        int distanceCount = 0;        
+         QEventPoint::State state = QEventPoint::State::Pressed;
++
++        int manhattanLength(const Contact &other) const {
++            return qAbs(other.x - x) + qAbs(other.y - y);
++        }       
+     };
+     QHash<int, Contact> m_contacts; // The key is a tracking id for type A, slot number for type B.
+     QHash<int, Contact> m_lastContacts;
+@@ -103,6 +112,7 @@ public:
+     double m_timeStamp;
+     double m_lastTimeStamp;
+ 
++    void handleStylusEvent(Qt::MouseButton btn, int value);
+     int findClosestContact(const QHash<int, Contact> &contacts, int x, int y, int *dist);
+     void addTouchPoint(const Contact &contact, QEventPoint::States *combinedStates);
+     void reportPoints();
+@@ -116,6 +126,14 @@ public:
+     int hw_range_y_max;
+     int hw_pressure_min;
+     int hw_pressure_max;
++    int hw_tool_min;
++    int hw_tool_max;
++
++    int stationary_distance_threshold;
++    int stationary_distance_threshold_stylus;
++    int stationary_distance_count;
++    int stationary_distance_count_stylus;
++   
+     QString hw_name;
+     QString deviceNode;
+     bool m_forceToActiveWindow;
+@@ -136,6 +154,10 @@ public:
+     // When filtering is enabled, protect the access to current and last
+     // timeStamp and touchPoints, as these are being read on the gui thread.
+     QMutex m_mutex;
++
++    QTransform m_transform;
++
++    quint64 m_lastDataRecvTime; // usec
+ };
+ 
+ QEvdevTouchScreenData::QEvdevTouchScreenData(QEvdevTouchScreenHandler *q_ptr, const QStringList &args)
+@@ -145,17 +167,22 @@ QEvdevTouchScreenData::QEvdevTouchScreenData(QEvdevTouchScreenHandler *q_ptr, co
+       m_timeStamp(0), m_lastTimeStamp(0),
+       hw_range_x_min(0), hw_range_x_max(0),
+       hw_range_y_min(0), hw_range_y_max(0),
+-      hw_pressure_min(0), hw_pressure_max(0),
++      hw_pressure_min(0), hw_pressure_max(255),
+       m_forceToActiveWindow(false), m_typeB(false), m_singleTouch(false),
+       m_filtered(false), m_prediction(0)
+ {
++    hw_pressure_max=255;
+     for (const QString &arg : args) {
+         if (arg == QStringLiteral("force_window"))
+             m_forceToActiveWindow = true;
+-        else if (arg == QStringLiteral("filtered"))
++        else if (arg == QStringLiteral("filtered")) {
+             m_filtered = true;
+-        else if (arg.startsWith(QStringLiteral("prediction=")))
++            qCDebug(qLcEvdevTouch, "set to filtered");
++        }
++        else if (arg.startsWith(QStringLiteral("prediction="))) {
++            qCDebug(qLcEvdevTouch, "set to prediction");
+             m_prediction = arg.mid(11).toInt();
++        }
+     }
+ }
+ 
+@@ -170,13 +197,20 @@ static inline bool testBit(long bit, const long *array)
+ #endif
+ 
+ QEvdevTouchScreenHandler::QEvdevTouchScreenHandler(const QString &device, const QString &spec, QObject *parent)
+-    : QObject(parent), m_notify(nullptr), m_fd(-1), d(nullptr), m_device(nullptr)
++    : QObject(parent), m_notify(nullptr), m_fd(-1), d(nullptr), m_deviceFinger(nullptr), m_devicePen(nullptr), m_isSpa(false)
+ #if QT_CONFIG(mtdev)
+       , m_mtdev(nullptr)
+ #endif
+ {
+     setObjectName("Evdev Touch Handler"_L1);
+ 
++    const char* pProduct = getenv("PRODUCT");
++    QString product = QString::fromUtf8(pProduct);;
++    if (product == QLatin1String("spaKoboColour") || product == QLatin1String("spaKoboBW") 
++        || product == QLatin1String("spaTolinoColour") || product == QLatin1String("spaTolinoBW")) {
++		m_isSpa = true;
++	}
++
+     const QStringList args = spec.split(u':');
+     int rotationAngle = 0;
+     bool invertx = false;
+@@ -227,6 +261,10 @@ QEvdevTouchScreenHandler::QEvdevTouchScreenHandler(const QString &device, const
+ #endif
+ 
+     d = new QEvdevTouchScreenData(this, args);
++    d->stationary_distance_count = 50;
++	d->stationary_distance_count_stylus = 3;
++	d->stationary_distance_threshold = 10;
++	d->stationary_distance_threshold_stylus = 1;
+ 
+ #if QT_CONFIG(mtdev)
+     const char *mtdevStr = "(mtdev)";
+@@ -273,12 +311,23 @@ QEvdevTouchScreenHandler::QEvdevTouchScreenHandler(const QString &device, const
+     if (!has_x_range || !has_y_range)
+         qWarning("evdevtouch: %ls: Invalid ABS limits, behavior unspecified", qUtf16Printable(device));
+ 
+-    if (ioctl(m_fd, EVIOCGABS(ABS_PRESSURE), &absInfo) >= 0) {
+-        qCDebug(qLcEvdevTouch, "evdevtouch: %ls: min pressure: %d max pressure: %d", qUtf16Printable(device),
+-                absInfo.minimum, absInfo.maximum);
++    if (ioctl(m_fd, EVIOCGABS(d->m_singleTouch ? ABS_PRESSURE : ABS_MT_PRESSURE), &absInfo) >= 0) {
++		if (absInfo.maximum > absInfo.minimum) {
++			qCDebug(qLcEvdevTouch) << QString::fromLatin1("min pressure: %0 max pressure: %1").arg(absInfo.minimum).arg(absInfo.maximum);
++			d->hw_pressure_min = absInfo.minimum;
++			d->hw_pressure_max = absInfo.maximum;
++		} else if (absInfo.maximum == 0 && absInfo.minimum == 0) {
++			qCDebug(qLcEvdevTouch) << "faking pressure!  min pressure: 0 max pressure: 2048";
++			d->hw_pressure_min = 0;
++			d->hw_pressure_max = 2048;
++		}
++	}
++
++    if (ioctl(m_fd, EVIOCGABS(ABS_MT_TOOL_TYPE), &absInfo) >= 0) {
+         if (absInfo.maximum > absInfo.minimum) {
+-            d->hw_pressure_min = absInfo.minimum;
+-            d->hw_pressure_max = absInfo.maximum;
++            qCDebug(qLcEvdevTouch) << QString::fromLatin1("kobo min tool: %0 max tool: %1").arg(absInfo.minimum).arg(absInfo.maximum);
++            d->hw_tool_min = absInfo.minimum;
++            d->hw_tool_max = absInfo.maximum;
+         }
+     }
+ 
+@@ -317,6 +366,20 @@ QEvdevTouchScreenHandler::QEvdevTouchScreenHandler(const QString &device, const
+     if (inverty)
+         d->m_rotate *= QTransform::fromTranslate(0.5, 0.5).scale(1.0, -1.0).translate(-0.5, -0.5);
+ 
++    // Listen on orientationChanged events to adjust touchpoint rotation
++    connect(QGuiApplication::primaryScreen(), &QScreen::orientationChanged, this, [=] (Qt::ScreenOrientation orientation) {
++        int newRotationAngle = rotationAngle;
++        switch (orientation) {
++            case Qt::PrimaryOrientation:
++            case Qt::PortraitOrientation: newRotationAngle = (m_isSpa ? 90 : 270); break;
++            case Qt::LandscapeOrientation: newRotationAngle = 180; break;
++            case Qt::InvertedLandscapeOrientation: newRotationAngle = 0; break;
++            case Qt::InvertedPortraitOrientation: newRotationAngle = (m_isSpa ? 270 : 90); break;
++            default: break;
++        }
++        d->m_rotate = QTransform::fromTranslate(0.5, 0.5).rotate(newRotationAngle).translate(-0.5, -0.5);
++    });
++
+     QOutputMapping *mapping = QOutputMapping::get();
+     if (mapping->load()) {
+         d->m_screenName = mapping->screenNameForDeviceNode(d->deviceNode);
+@@ -325,7 +388,7 @@ QEvdevTouchScreenHandler::QEvdevTouchScreenHandler(const QString &device, const
+                     qUtf16Printable(d->deviceNode), qUtf16Printable(d->m_screenName));
+     }
+ 
+-    registerPointingDevice();
++    registerPointingDevice(m_deviceFinger, QPointingDevice::PointerType::Finger);
+ }
+ 
+ QEvdevTouchScreenHandler::~QEvdevTouchScreenHandler()
+@@ -342,7 +405,8 @@ QEvdevTouchScreenHandler::~QEvdevTouchScreenHandler()
+ 
+     delete d;
+ 
+-    unregisterPointingDevice();
++    unregisterPointingDevice(m_deviceFinger);
++    unregisterPointingDevice(m_devicePen);
+ }
+ 
+ bool QEvdevTouchScreenHandler::isFiltered() const
+@@ -350,9 +414,14 @@ bool QEvdevTouchScreenHandler::isFiltered() const
+     return d && d->m_filtered;
+ }
+ 
+-QPointingDevice *QEvdevTouchScreenHandler::touchDevice() const
++QPointingDevice *QEvdevTouchScreenHandler::touchDeviceFinger() const
++{
++    return m_deviceFinger;
++}
++
++QPointingDevice *QEvdevTouchScreenHandler::touchDevicePen() const
+ {
+-    return m_device;
++    return m_devicePen;
+ }
+ 
+ void QEvdevTouchScreenHandler::readData()
+@@ -411,33 +480,33 @@ err:
+                 QT_CLOSE(m_fd);
+                 m_fd = -1;
+ 
+-                unregisterPointingDevice();
++                unregisterPointingDevice(m_deviceFinger);
+             }
+             return;
+         }
+     }
+ }
+ 
+-void QEvdevTouchScreenHandler::registerPointingDevice()
++static int deviceId = 1;
++void QEvdevTouchScreenHandler::registerPointingDevice(QPointingDevice*& device, const QPointingDevice::PointerType pointerType)
+ {
+-    if (m_device)
++    if (device)
+         return;
+ 
+-    static int id = 1;
+     QPointingDevice::Capabilities caps = QPointingDevice::Capability::Position | QPointingDevice::Capability::Area;
+     if (d->hw_pressure_max > d->hw_pressure_min)
+         caps.setFlag(QPointingDevice::Capability::Pressure);
+ 
+     // TODO get evdev ID instead of an incremeting number; set USB ID too
+-    m_device = new QPointingDevice(d->hw_name, id++,
+-                                   QInputDevice::DeviceType::TouchScreen, QPointingDevice::PointerType::Finger,
++    device = new QPointingDevice(d->hw_name, deviceId++,
++                                   QInputDevice::DeviceType::TouchScreen, pointerType,
+                                    caps, 16, 0);
+ 
+     auto geom = d->screenGeometry();
+     if (!geom.isNull())
+-        QPointingDevicePrivate::get(m_device)->setAvailableVirtualGeometry(geom);
++        QPointingDevicePrivate::get(device)->setAvailableVirtualGeometry(geom);
+ 
+-    QWindowSystemInterface::registerInputDevice(m_device);
++    QWindowSystemInterface::registerInputDevice(device);
+ }
+ 
+ /*! \internal
+@@ -469,18 +538,43 @@ void QEvdevTouchScreenHandler::registerPointingDevice()
+ 
+     see QGuiApplicationPrivate::processTouchEvent().
+  */
+-void QEvdevTouchScreenHandler::unregisterPointingDevice()
++void QEvdevTouchScreenHandler::unregisterPointingDevice(QPointingDevice*& device)
+ {
+-    if (!m_device)
++    if (!device)
+         return;
+ 
+     if (QGuiApplication::instance()) {
+-        m_device->moveToThread(QGuiApplication::instance()->thread());
+-        m_device->deleteLater();
++        device->moveToThread(QGuiApplication::instance()->thread());
++        device->deleteLater();
+     } else {
+-        delete m_device;
++        delete device;
+     }
+-    m_device = nullptr;
++    device = nullptr;
++}
++
++QPointingDevice* QEvdevTouchScreenHandler::getOrRegisterDevice(bool hasPen)
++{
++    QPointingDevice* device = nullptr;
++    if (hasPen) {
++        if (touchDevicePen() == nullptr) {
++            registerPointingDeviceForPen();
++        }
++
++        device = touchDevicePen();
++        if (nullptr == device) {
++            qFatal("Failed to register Pointing Device For Pen");
++            return nullptr;
++        }
++
++    } else {
++        device = touchDeviceFinger();
++    }
++    return device;
++}
++
++void QEvdevTouchScreenHandler::registerPointingDeviceForPen()
++{
++    registerPointingDevice(m_devicePen, QPointingDevice::PointerType::Pen);
+ }
+ 
+ void QEvdevTouchScreenData::addTouchPoint(const Contact &contact, QEventPoint::States *combinedStates)
+@@ -489,6 +583,9 @@ void QEvdevTouchScreenData::addTouchPoint(const Contact &contact, QEventPoint::S
+     tp.id = contact.trackingId;
+     tp.state = contact.state;
+     *combinedStates |= tp.state;
++    if (MT_TOOL_PEN == contact.toolType) {
++        tp.uniqueId = MT_TOOL_PEN;
++    }
+ 
+     // Store the HW coordinates for now, will be updated later.
+     tp.area = QRectF(0, 0, contact.maj, contact.maj);
+@@ -509,56 +606,96 @@ void QEvdevTouchScreenData::addTouchPoint(const Contact &contact, QEventPoint::S
+ 
+ void QEvdevTouchScreenData::processInputEvent(input_event *data)
+ {
++    m_lastDataRecvTime = QGuiApplication::usecsElapsed();
++    
+     if (data->type == EV_ABS) {
+ 
+-        if (data->code == ABS_MT_POSITION_X || (m_singleTouch && data->code == ABS_X)) {
++        //if (data->code == ABS_MT_POSITION_X || (m_singleTouch && data->code == ABS_X)) {
++        if (data->code == ABS_MT_POSITION_X || (/* Kobo a450ae8 *//*m_singleTouch &&*/ data->code == ABS_X)) {
+             m_currentData.x = qBound(hw_range_x_min, data->value, hw_range_x_max);
+-            if (m_singleTouch)
+-                m_contacts[m_currentSlot].x = m_currentData.x;
+-            if (m_typeB) {
++            if (m_typeB || m_singleTouch) {
+                 m_contacts[m_currentSlot].x = m_currentData.x;
+-                if (m_contacts[m_currentSlot].state == QEventPoint::State::Stationary)
+-                    m_contacts[m_currentSlot].state = QEventPoint::State::Updated;
+             }
+-        } else if (data->code == ABS_MT_POSITION_Y || (m_singleTouch && data->code == ABS_Y)) {
++        //} else if (data->code == ABS_MT_POSITION_Y || (m_singleTouch && data->code == ABS_Y)) {
++        } else if (data->code == ABS_MT_POSITION_Y || (/* Kobo a450ae8 *//*m_singleTouch &&*/ data->code == ABS_Y)) {
+             m_currentData.y = qBound(hw_range_y_min, data->value, hw_range_y_max);
+-            if (m_singleTouch)
+-                m_contacts[m_currentSlot].y = m_currentData.y;
+-            if (m_typeB) {
++            if (m_typeB || m_singleTouch) {
+                 m_contacts[m_currentSlot].y = m_currentData.y;
+-                if (m_contacts[m_currentSlot].state == QEventPoint::State::Stationary)
+-                    m_contacts[m_currentSlot].state = QEventPoint::State::Updated;
+             }
+         } else if (data->code == ABS_MT_TRACKING_ID) {
+             m_currentData.trackingId = data->value;
+             if (m_typeB) {
+-                if (m_currentData.trackingId == -1) {
++                if (data->value == -1) {
+                     m_contacts[m_currentSlot].state = QEventPoint::State::Released;
+                 } else {
+-                    m_contacts[m_currentSlot].state = QEventPoint::State::Pressed;
+-                    m_contacts[m_currentSlot].trackingId = m_currentData.trackingId;
++                    m_contacts[m_currentSlot].trackingId = data->value;
+                 }
+             }
++            
++        } else if (data->code == ABS_MT_DISTANCE) {
++        	m_currentData.mtDistance = data->value;
++            if (m_typeB || m_singleTouch) {
++                m_contacts[m_currentSlot].mtDistance = m_currentData.mtDistance;
++            }
+         } else if (data->code == ABS_MT_TOUCH_MAJOR) {
+             m_currentData.maj = data->value;
+-            if (data->value == 0)
+-                m_currentData.state = QEventPoint::State::Released;
++/* Kobo a450ae8 *//*            if (data->value == 0)
++                m_currentData.state = QEventPoint::State::Released;*/
+             if (m_typeB)
+                 m_contacts[m_currentSlot].maj = m_currentData.maj;
+-        } else if (data->code == ABS_PRESSURE || data->code == ABS_MT_PRESSURE) {
++        } else if (data->code == ABS_MT_WIDTH_MAJOR) {
++            if (data->value == 0) {
++			    m_currentData.state = QEventPoint::State::Released;
++		    }
++        }else if (data->code == ABS_PRESSURE || data->code == ABS_MT_PRESSURE) {
+             if (Q_UNLIKELY(qLcEvents().isDebugEnabled()))
+-                qCDebug(qLcEvents, "EV_ABS code 0x%x: pressure %d; bounding to [%d,%d]",
+-                        data->code, data->value, hw_pressure_min, hw_pressure_max);
++                qCDebug(qLcEvents, "[ %llu ] EV_ABS code 0x%x: pressure %d; bounding to [%d,%d]", 
++                        m_lastDataRecvTime, data->code, data->value, hw_pressure_min, hw_pressure_max);
+             m_currentData.pressure = qBound(hw_pressure_min, data->value, hw_pressure_max);
+             if (m_typeB || m_singleTouch)
+                 m_contacts[m_currentSlot].pressure = m_currentData.pressure;
+         } else if (data->code == ABS_MT_SLOT) {
+             m_currentSlot = data->value;
++        } else if (ABS_MT_TOOL_TYPE == data->code) {
++            m_currentData.toolType = qBound(hw_tool_min, data->value, hw_tool_max);
++            if (m_typeB || m_singleTouch) {
++                m_contacts[m_currentSlot].toolType = m_currentData.toolType;
++            }            
+         }
+ 
+-    } else if (data->type == EV_KEY && !m_typeB) {
+-        if (data->code == BTN_TOUCH && data->value == 0)
++    } else if (data->type == EV_KEY) {
++        switch (data->code) {
++        case BTN_TOUCH:
++            if (m_typeB || m_singleTouch) {
++                if (m_currentData.toolType == MT_TOOL_PEN && m_currentData.mtDistance > 0) {
++                    if (data->value) {
++                        QWindowSystemInterface::handleTabletEnterProximityEvent((int)QInputDevice::DeviceType::Stylus, (int)QPointingDevice::PointerType::Pen, 0);
++                    }
++                    else {
++                        QWindowSystemInterface::handleTabletLeaveProximityEvent((int)QInputDevice::DeviceType::Stylus, (int)QPointingDevice::PointerType::Pen, 0);
++                    }
++                }
++            }
++            break;
++        case BTN_STYLUS:
++            if (m_typeB || m_singleTouch) {
++                handleStylusEvent(Qt::LeftButton, data->value);
++            }
++            break;
++
++        case BTN_STYLUS2:
++            if (m_typeB || m_singleTouch) {
++                handleStylusEvent(Qt::RightButton, data->value);
++            }
++            break;
++        case KEY_BATTERY:
++            QWindowSystemInterface::handleKeyEvent(nullptr, data->value == 0? QEvent::KeyRelease : QEvent::KeyPress, Qt::Key_Battery, Qt::NoModifier, QLatin1String(""), false, 0);
++            break;
++        }
++        if (!m_typeB && data->code == BTN_TOUCH && data->value == 0) {
+             m_contacts[m_currentSlot].state = QEventPoint::State::Released;
++        }
++		    
+     } else if (data->type == EV_SYN && data->code == SYN_MT_REPORT && m_lastEventType != EV_SYN) {
+ 
+         // If there is no tracking id, one will be generated later.
+@@ -598,6 +735,44 @@ void QEvdevTouchScreenData::processInputEvent(input_event *data)
+             }
+ 
+             int key = m_typeB ? it.key() : contact.trackingId;
++
++            auto lastContact = m_lastContacts.constFind(key);
++            auto hasLastContact = lastContact != m_lastContacts.constEnd();
++
++            if (contact.toolType == MT_TOOL_PEN && contact.mtDistance > 0) {
++                if (!hasLastContact) { // enter -> hover => no events
++                    it = m_contacts.erase(it);
++                    return;
++                }
++                contact.state = QEventPoint::State::Released; // mtDistance = 0 -> mtDistance > 0 => release
++                addTouchPoint(contact, &combinedStates);
++                ++it;
++                continue;
++            }
++
++            if (hasLastContact && contact.state != Qt::TouchPointReleased) {
++                const Contact &prev(lastContact.value());
++                if (prev.x == -1 || prev.y == -1) {
++                    qCWarning(qLcEvdevTouch) << QString::fromLatin1("received SYN_REPORT but (x,y)==(%1,%2)... skipping!").arg(prev.x).arg(prev.y);
++                    it = m_contacts.erase(it);
++                    continue;
++                }
++                int pdistance = prev.manhattanLength(contact);
++                int distance = prev.distance + pdistance;
++                int threshold = contact.toolType == MT_TOOL_FINGER ? stationary_distance_threshold : stationary_distance_threshold_stylus;
++                int distanceCount = contact.toolType == MT_TOOL_FINGER ? stationary_distance_count : stationary_distance_count_stylus;
++                if (pdistance < threshold && prev.distanceCount > distanceCount) {
++                    contact.state = QEventPoint::State::Stationary;
++                    contact.distance = 0;
++                    contact.distanceCount = 0;
++                }
++                else {
++                    contact.state = distance < threshold ? QEventPoint::State::Stationary : QEventPoint::State::Updated;
++                    contact.distance = distance;
++                    contact.distanceCount = prev.distanceCount + 1;
++                }
++            }            
++
+             if (!m_typeB && m_lastContacts.contains(key)) {
+                 const Contact &prev(m_lastContacts.value(key));
+                 if (contact.state == QEventPoint::State::Released) {
+@@ -618,6 +793,11 @@ void QEvdevTouchScreenData::processInputEvent(input_event *data)
+                 continue;
+             }
+ 
++            if (contact.x == -1 || contact.y == -1) {
++                it = m_contacts.erase(it);
++                continue;
++            }
++
+             if (contact.pressure)
+                 hasPressure = true;
+ 
+@@ -630,7 +810,7 @@ void QEvdevTouchScreenData::processInputEvent(input_event *data)
+             Contact &contact(it.value());
+             int key = m_typeB ? it.key() : contact.trackingId;
+             if (m_typeB) {
+-                if (contact.trackingId != m_contacts[key].trackingId && contact.state) {
++                if (contact.trackingId != m_contacts[key].trackingId || !m_contacts.contains(key)) {
+                     contact.state = QEventPoint::State::Released;
+                     addTouchPoint(contact, &combinedStates);
+                 }
+@@ -646,28 +826,20 @@ void QEvdevTouchScreenData::processInputEvent(input_event *data)
+         for (auto it = m_contacts.begin(), end = m_contacts.end(); it != end; /*erasing*/) {
+             Contact &contact(it.value());
+ 
+-            if (!contact.state) {
+-                ++it;
+-                continue;
+-            }
+-
+             if (contact.state == QEventPoint::State::Released) {
+-                if (m_typeB) {
+-                    contact.state = QEventPoint::State::Unknown;
+-                } else {
+-                    it = m_contacts.erase(it);
+-                    continue;
+-                }
+-            } else {
+-                contact.state = QEventPoint::State::Stationary;
++                it = m_contacts.erase(it);
++                continue;
+             }
+             ++it;
+         }
+ 
+-        m_lastContacts = m_contacts;
+-        if (!m_typeB && !m_singleTouch)
++        if (m_typeB || m_singleTouch) {
++            m_lastContacts = m_contacts;
++        }
++        else {
++            m_lastContacts.swap(m_contacts);
+             m_contacts.clear();
+-
++        }
+ 
+         if (!m_touchPoints.isEmpty() && (hasPressure || combinedStates != QEventPoint::State::Stationary))
+             reportPoints();
+@@ -676,6 +848,15 @@ void QEvdevTouchScreenData::processInputEvent(input_event *data)
+     m_lastEventType = data->type;
+ }
+ 
++void QEvdevTouchScreenData::handleStylusEvent(Qt::MouseButton btn, int value)
++{
++    QPointF p;
++    QWindowSystemInterface::handleMouseEvent(nullptr, q->getOrRegisterDevice(true),
++                        p, p,
++                        btn, btn,
++                        value == 0 ? QEvent::TabletRelease : QEvent::TabletPress);
++}
++
+ int QEvdevTouchScreenData::findClosestContact(const QHash<int, Contact> &contacts, int x, int y, int *dist)
+ {
+     int minDist = -1, id = -1;
+@@ -775,8 +956,12 @@ void QEvdevTouchScreenData::reportPoints()
+     // Map the coordinates based on the normalized position. QPA expects 'area'
+     // to be in screen coordinates.
+     const int pointCount = m_touchPoints.size();
++    bool hasPen = false;
+     for (int i = 0; i < pointCount; ++i) {
+         QWindowSystemInterface::TouchPoint &tp(m_touchPoints[i]);
++        if (MT_TOOL_PEN == tp.uniqueId) {
++            hasPen = true;
++        }
+ 
+         // Generate a screen position that is always inside the active window
+         // or the primary screen.  Even though we report this as a QRectF, internally
+@@ -797,14 +982,24 @@ void QEvdevTouchScreenData::reportPoints()
+             tp.pressure = (tp.pressure - hw_pressure_min) / qreal(hw_pressure_max - hw_pressure_min);
+ 
+         if (Q_UNLIKELY(qLcEvents().isDebugEnabled()))
+-            qCDebug(qLcEvents) << "reporting" << tp;
++            qCDebug(qLcEvents) << "[" << m_lastDataRecvTime << "] reporting" << tp;
+     }
+ 
+     // Let qguiapp pick the target window.
+     if (m_filtered)
+         emit q->touchPointsUpdated();
+-    else
+-        QWindowSystemInterface::handleTouchEvent(nullptr, q->touchDevice(), m_touchPoints);
++    else {
++        QPointingDevice* device = q->getOrRegisterDevice(hasPen);
++        if (nullptr == device) {
++            qFatal("reportPoints nullptr == device");
++            return;
++        }
++        QWindowSystemInterface::handleTouchEvent(nullptr, device, m_touchPoints, Qt::NoModifier, m_lastDataRecvTime);
++    }
++}
++qint64 QEvdevTouchScreenHandler::getlastDataRecvTime() const
++{
++    return d->m_lastDataRecvTime;
+ }
+ 
+ QEvdevTouchScreenHandlerThread::QEvdevTouchScreenHandlerThread(const QString &device, const QString &spec, QObject *parent)
+@@ -860,7 +1055,10 @@ void QEvdevTouchScreenHandlerThread::scheduleTouchPointUpdate()
+             m_filterWindow->installEventFilter(this);
+     }
+     if (m_filterWindow) {
+-        m_touchUpdatePending = true;
++        if (!m_touchUpdatePending) {
++            m_touchUpdatePending = true;
++            m_filteredPostedTime = m_handler->getlastDataRecvTime();
++        }
+         m_filterWindow->requestUpdate();
+     }
+ }
+@@ -868,6 +1066,9 @@ void QEvdevTouchScreenHandlerThread::scheduleTouchPointUpdate()
+ bool QEvdevTouchScreenHandlerThread::eventFilter(QObject *object, QEvent *event)
+ {
+     if (m_touchUpdatePending && object == m_filterWindow && event->type() == QEvent::UpdateRequest) {
++        //m_filteredPostedTime can change immediately after we change m_touchUpdatePending to false so log it now
++        if (Q_UNLIKELY(qLcEvents().isDebugEnabled()))
++            qCDebug(qLcEvents) << "filterAndSendTouchPoints() data from" << m_filteredPostedTime << "to" << QGuiApplication::getPerformanceTimer().nsecsElapsed()/1000;
+         m_touchUpdatePending = false;
+         filterAndSendTouchPoints();
+     }
+@@ -966,9 +1167,13 @@ void QEvdevTouchScreenHandlerThread::filterAndSendTouchPoints()
+             filteredPoints[tp.id] = f;
+     }
+ 
++    bool hasPen = false;
+     for (QHash<int, FilteredTouchPoint>::const_iterator it = m_filteredPoints.constBegin(), end = m_filteredPoints.constEnd(); it != end; ++it) {
+         const FilteredTouchPoint &f = it.value();
+         QWindowSystemInterface::TouchPoint tp = f.touchPoint;
++        if (MT_TOOL_PEN == tp.uniqueId) {
++            hasPen = true;
++        }
+         tp.state = QEventPoint::State::Released;
+         tp.velocity = QVector2D();
+         points.append(tp);
+@@ -976,9 +1181,15 @@ void QEvdevTouchScreenHandlerThread::filterAndSendTouchPoints()
+ 
+     m_filteredPoints = filteredPoints;
+ 
++    QPointingDevice* device = m_handler->getOrRegisterDevice(hasPen);
++    if (nullptr == device) {
++        qFatal("filterAndSendTouchPoints nullptr == device");
++        return;
++    }
++
+     QWindowSystemInterface::handleTouchEvent(nullptr,
+-                                             m_handler->touchDevice(),
+-                                             points);
++                                             device,
++                                             points, Qt::NoModifier, m_handler->d->m_lastDataRecvTime);
+ }
+ 
+ 
+diff --git a/src/platformsupport/input/evdevtouch/qevdevtouchhandler_p.h b/src/platformsupport/input/evdevtouch/qevdevtouchhandler_p.h
+index b7b058e..55be41e 100644
+--- a/src/platformsupport/input/evdevtouch/qevdevtouchhandler_p.h
++++ b/src/platformsupport/input/evdevtouch/qevdevtouchhandler_p.h
+@@ -45,12 +45,16 @@ public:
+     explicit QEvdevTouchScreenHandler(const QString &device, const QString &spec = QString(), QObject *parent = nullptr);
+     ~QEvdevTouchScreenHandler();
+ 
+-    QPointingDevice *touchDevice() const;
++    QPointingDevice *touchDeviceFinger() const;
++    QPointingDevice *touchDevicePen() const;
++    void registerPointingDeviceForPen();
++    QPointingDevice* getOrRegisterDevice(bool hasPen);
+ 
+     bool isFiltered() const;
+ 
+     void readData();
+ 
++    qint64 getlastDataRecvTime() const;
+ signals:
+     void touchPointsUpdated();
+ 
+@@ -58,13 +62,15 @@ private:
+     friend class QEvdevTouchScreenData;
+     friend class QEvdevTouchScreenHandlerThread;
+ 
+-    void registerPointingDevice();
+-    void unregisterPointingDevice();
++    void registerPointingDevice(QPointingDevice*& device, const QPointingDevice::PointerType pointerType);
++    void unregisterPointingDevice(QPointingDevice*& device);
+ 
+     QSocketNotifier *m_notify;
+     int m_fd;
+     QEvdevTouchScreenData *d;
+-    QPointingDevice *m_device;
++    QPointingDevice *m_deviceFinger;
++    QPointingDevice *m_devicePen;
++    bool m_isSpa;
+ #if QT_CONFIG(mtdev)
+     mtdev *m_mtdev;
+ #endif
+@@ -109,6 +115,7 @@ private:
+     QHash<int, FilteredTouchPoint> m_filteredPoints;
+ 
+     float m_touchRate;
++    qint64 m_filteredPostedTime;    // usec
+ };
+ 
+ QT_END_NAMESPACE
+diff --git a/src/plugins/platforms/linuxfb/qlinuxfbintegration.cpp b/src/plugins/platforms/linuxfb/qlinuxfbintegration.cpp
+index f87766c..41fad91 100644
+--- a/src/plugins/platforms/linuxfb/qlinuxfbintegration.cpp
++++ b/src/plugins/platforms/linuxfb/qlinuxfbintegration.cpp
+@@ -17,6 +17,7 @@
+ #include <QtFbSupport/private/qfbcursor_p.h>
+ 
+ #include <QtGui/private/qguiapplication_p.h>
++#include <QtGui/private/qspiaccessiblebridge_p.h>
+ #include <qpa/qplatforminputcontextfactory_p.h>
+ #include <qpa/qwindowsysteminterface.h>
+ 
+@@ -150,6 +151,17 @@ QFunctionPointer QLinuxFbIntegration::platformFunction(const QByteArray &functio
+     return nullptr;
+ }
+ 
++QPlatformAccessibility *QLinuxFbIntegration::accessibility() const
++{
++    if (!m_accessibility) {
++        Q_ASSERT_X(QCoreApplication::eventDispatcher(), "QXcbIntegration",
++            "Initializing accessibility without event-dispatcher!");
++        m_accessibility.reset(new QSpiAccessibleBridge());
++    }
++
++    return m_accessibility.data();
++}
++
+ #if QT_CONFIG(evdev)
+ void QLinuxFbIntegration::loadKeymap(const QString &filename)
+ {
+diff --git a/src/plugins/platforms/linuxfb/qlinuxfbintegration.h b/src/plugins/platforms/linuxfb/qlinuxfbintegration.h
+index 352bddd..3e2692a 100644
+--- a/src/plugins/platforms/linuxfb/qlinuxfbintegration.h
++++ b/src/plugins/platforms/linuxfb/qlinuxfbintegration.h
+@@ -42,6 +42,8 @@ public:
+ 
+     QFunctionPointer platformFunction(const QByteArray &function) const override;
+ 
++    QPlatformAccessibility *accessibility() const override;
++
+ #if QT_CONFIG(evdev)
+     void loadKeymap(const QString &filename) override;
+     void switchLang() override;
+@@ -49,7 +51,7 @@ public:
+ 
+ private:
+     void createInputHandlers();
+-
++    mutable QScopedPointer<QPlatformAccessibility> m_accessibility;
+     QFbScreen *m_primaryScreen;
+     QPlatformInputContext *m_inputContext;
+     QScopedPointer<QPlatformFontDatabase> m_fontDb;
+diff --git a/src/plugins/platforms/xcb/qxcbbackingstore.cpp b/src/plugins/platforms/xcb/qxcbbackingstore.cpp
+index f3905df..220f497 100644
+--- a/src/plugins/platforms/xcb/qxcbbackingstore.cpp
++++ b/src/plugins/platforms/xcb/qxcbbackingstore.cpp
+@@ -828,8 +828,9 @@ QPlatformGraphicsBuffer *QXcbBackingStore::graphicsBuffer() const
+     return m_image ? m_image->graphicsBuffer() : nullptr;
+ }
+ 
+-void QXcbBackingStore::flush(QWindow *window, const QRegion &region, const QPoint &offset)
++void QXcbBackingStore::flush(QWindow *window, const QRegion &region, const QPoint &offset, const QList<QPair<QRect,uint64_t> > &flags)
+ {
++    Q_UNUSED(flags);
+     if (!m_image || m_image->size().isEmpty())
+         return;
+ 
+diff --git a/src/plugins/platforms/xcb/qxcbbackingstore.h b/src/plugins/platforms/xcb/qxcbbackingstore.h
+index 979b254..9c6e1e5 100644
+--- a/src/plugins/platforms/xcb/qxcbbackingstore.h
++++ b/src/plugins/platforms/xcb/qxcbbackingstore.h
+@@ -22,7 +22,7 @@ public:
+     ~QXcbBackingStore();
+ 
+     QPaintDevice *paintDevice() override;
+-    void flush(QWindow *window, const QRegion &region, const QPoint &offset) override;
++    void flush(QWindow *window, const QRegion &region, const QPoint &offset, const QList<QPair<QRect,uint64_t> > &flags) override;
+     FlushResult rhiFlush(QWindow *window,
+                          qreal sourceDevicePixelRatio,
+                          const QRegion &region,
+diff --git a/src/plugins/sqldrivers/sqlite/CMakeLists.txt b/src/plugins/sqldrivers/sqlite/CMakeLists.txt
+index add9dff..8a9f90b 100644
+--- a/src/plugins/sqldrivers/sqlite/CMakeLists.txt
++++ b/src/plugins/sqldrivers/sqlite/CMakeLists.txt
+@@ -51,8 +51,11 @@ qt_internal_extend_target(QSQLiteDriverPlugin CONDITION NOT QT_FEATURE_system_sq
+         SQLITE_ENABLE_MATH_FUNCTIONS
+         SQLITE_ENABLE_RTREE
+         SQLITE_OMIT_COMPLETE
++        SQLITE_HAS_CODEC
+     INCLUDE_DIRECTORIES
+         ../../../3rdparty/sqlite
++    LIBRARIES
++        crypto
+ )
+ 
+ qt_internal_extend_target(QSQLiteDriverPlugin CONDITION CMAKE_BUILD_TYPE STREQUAL Release AND NOT QT_FEATURE_system_sqlite
+diff --git a/src/testlib/CMakeLists.txt b/src/testlib/CMakeLists.txt
+index 6cdb8f3..3007585 100644
+--- a/src/testlib/CMakeLists.txt
++++ b/src/testlib/CMakeLists.txt
+@@ -121,8 +121,8 @@ set(qt_tc_build_dir_def
+     "$<IF:${qt_bool_tc_build_dir},${qt_tc_build_dir},$<TARGET_PROPERTY:BINARY_DIR>>"
+ )
+ set_property(TARGET Test APPEND PROPERTY INTERFACE_COMPILE_DEFINITIONS
+-    QT_TESTCASE_BUILDDIR="${qt_tc_build_dir_def}"
+-    QT_TESTCASE_SOURCEDIR="$<TARGET_PROPERTY:SOURCE_DIR>"
++    QT_TESTCASE_BUILDDIR=""
++    QT_TESTCASE_SOURCEDIR=""
+ )
+ 
+ qt_internal_add_docs(Test
+diff --git a/src/widgets/graphicsview/qgraphicsscene.cpp b/src/widgets/graphicsview/qgraphicsscene.cpp
+index dbe6ed9..0b57e3f 100644
+--- a/src/widgets/graphicsview/qgraphicsscene.cpp
++++ b/src/widgets/graphicsview/qgraphicsscene.cpp
+@@ -5924,6 +5924,7 @@ void QGraphicsScenePrivate::touchEventHandler(QTouchEvent *sceneTouchEvent)
+         touchEvent.setTarget(sceneTouchEvent->target());
+         touchEvent.setModifiers(sceneTouchEvent->modifiers());
+         touchEvent.setTimestamp(sceneTouchEvent->timestamp());
++        touchEvent.setUsecTimestamp(sceneTouchEvent->usecTimestamp());
+ 
+         switch (touchEvent.type()) {
+         case QEvent::TouchBegin:
+diff --git a/src/widgets/kernel/qapplication.cpp b/src/widgets/kernel/qapplication.cpp
+index 8b6adc0..81f6a25 100644
+--- a/src/widgets/kernel/qapplication.cpp
++++ b/src/widgets/kernel/qapplication.cpp
+@@ -3920,6 +3920,7 @@ bool QApplicationPrivate::translateRawTouchEvent(QWidget *window, const QTouchEv
+         bool containsPress = updateTouchPointsForWidget(widget, &touchEvent);
+         touchEvent.setTimestamp(te->timestamp());
+         touchEvent.setTarget(widget);
++        touchEvent.setUsecTimestamp(te->usecTimestamp());
+ 
+         if (containsPress)
+             widget->setAttribute(Qt::WA_WState_AcceptedTouchBeginEvent);
+diff --git a/src/widgets/kernel/qwidget.cpp b/src/widgets/kernel/qwidget.cpp
+index 2a116e8..8706cc9 100644
+--- a/src/widgets/kernel/qwidget.cpp
++++ b/src/widgets/kernel/qwidget.cpp
+@@ -5613,6 +5613,9 @@ void QWidgetPrivate::drawWidget(QPaintDevice *pdev, const QRegion &rgn, const QP
+             if (paintEngine && paintEngine->autoDestruct()) {
+                 delete paintEngine;
+             }
++
++            QPaintedEvent painted(toBePainted);
++            QCoreApplication::sendSpontaneousEvent(q, &painted);
+         } else if (q->isWindow()) {
+             QPaintEngine *engine = pdev->paintEngine();
+             if (engine) {
+@@ -8959,11 +8962,13 @@ bool QWidget::event(QEvent *event)
+         QKeyEvent *k = static_cast<QKeyEvent *>(event);
+         bool res = false;
+         if (!(k->modifiers() & (Qt::ControlModifier | Qt::AltModifier))) {  //### Add MetaModifier?
+-            if (k->key() == Qt::Key_Backtab
+-                || (k->key() == Qt::Key_Tab && (k->modifiers() & Qt::ShiftModifier)))
+-                res = focusNextPrevChild(false);
+-            else if (k->key() == Qt::Key_Tab)
+-                res = focusNextPrevChild(true);
++            if (!getenv("QT_DISABLE_TAB_CONTROL")) {
++                if (k->key() == Qt::Key_Backtab
++                    || (k->key() == Qt::Key_Tab && (k->modifiers() & Qt::ShiftModifier)))
++                    res = focusNextPrevChild(false);
++                else if (k->key() == Qt::Key_Tab)
++                    res = focusNextPrevChild(true);
++            }
+             if (res)
+                 break;
+         }
+@@ -11680,6 +11685,7 @@ void QWidget::setAccessibleName(const QString &name)
+     d->accessibleName = name;
+     QAccessibleEvent event(this, QAccessible::NameChanged);
+     QAccessible::updateAccessibility(&event);
++    emit accessibleNameChanged();
+ }
+ 
+ QString QWidget::accessibleName() const
+@@ -11710,6 +11716,7 @@ void QWidget::setAccessibleDescription(const QString &description)
+     d->accessibleDescription = description;
+     QAccessibleEvent event(this, QAccessible::DescriptionChanged);
+     QAccessible::updateAccessibility(&event);
++    emit accessibleDescriptionChanged();
+ }
+ 
+ QString QWidget::accessibleDescription() const
+diff --git a/src/widgets/kernel/qwidget.h b/src/widgets/kernel/qwidget.h
+index d2b20c6..64d40f3 100644
+--- a/src/widgets/kernel/qwidget.h
++++ b/src/widgets/kernel/qwidget.h
+@@ -164,8 +164,8 @@ class Q_WIDGETS_EXPORT QWidget : public QObject, public QPaintDevice
+     Q_PROPERTY(QString whatsThis READ whatsThis WRITE setWhatsThis)
+ #endif
+ #if QT_CONFIG(accessibility)
+-    Q_PROPERTY(QString accessibleName READ accessibleName WRITE setAccessibleName)
+-    Q_PROPERTY(QString accessibleDescription READ accessibleDescription WRITE setAccessibleDescription)
++    Q_PROPERTY(QString accessibleName READ accessibleName WRITE setAccessibleName NOTIFY accessibleNameChanged)
++    Q_PROPERTY(QString accessibleDescription READ accessibleDescription WRITE setAccessibleDescription NOTIFY accessibleDescriptionChanged)
+ #endif
+     Q_PROPERTY(Qt::LayoutDirection layoutDirection READ layoutDirection WRITE setLayoutDirection RESET unsetLayoutDirection)
+     QDOC_PROPERTY(Qt::WindowFlags windowFlags READ windowFlags WRITE setWindowFlags)
+@@ -654,6 +654,8 @@ Q_SIGNALS:
+     void windowIconChanged(const QIcon &icon);
+     void windowIconTextChanged(const QString &iconText);
+     void customContextMenuRequested(const QPoint &pos);
++    void accessibleNameChanged();
++    void accessibleDescriptionChanged();
+ 
+ protected:
+     // Event handlers
+diff --git a/src/widgets/kernel/qwidget_p.h b/src/widgets/kernel/qwidget_p.h
+index d9d9825..e77c04e 100644
+--- a/src/widgets/kernel/qwidget_p.h
++++ b/src/widgets/kernel/qwidget_p.h
+@@ -704,7 +704,7 @@ public:
+ #endif
+ 
+     // Bit fields.
+-    uint high_attributes[4]; // the low ones are in QWidget::widget_attributes
++    uint high_attributes[6]; // the low ones are in QWidget::widget_attributes
+     QPalette::ColorRole fg_role : 8;
+     QPalette::ColorRole bg_role : 8;
+     uint dirtyOpaqueChildren : 1;
+diff --git a/src/widgets/kernel/qwidgetrepaintmanager.cpp b/src/widgets/kernel/qwidgetrepaintmanager.cpp
+index 1a0fda8..614f46c 100644
+--- a/src/widgets/kernel/qwidgetrepaintmanager.cpp
++++ b/src/widgets/kernel/qwidgetrepaintmanager.cpp
+@@ -919,6 +919,14 @@ void QWidgetRepaintManager::markNeedsFlush(QWidget *widget, const QRegion &regio
+     if (!widget || widget->d_func()->shouldPaintOnScreen() || region.isEmpty())
+         return;
+ 
++    //add kobo dirtyflag handling
++    QWidgetPrivate *wp = qt_widget_private(widget);
++    if (wp->high_attributes[5] != 0 || wp->high_attributes[4] != 0) {
++        uint64_t attr5 = (uint64_t)(wp->high_attributes[5]);
++        uint64_t flag = (attr5 << 8*sizeof(uint)) | wp->high_attributes[4];
++        dirtyWidgetFlags += QPair<QRect, uint64_t>(region.translated(topLevelOffset).boundingRect(), flag);
++    }
++
+     if (widget == tlw) {
+         // Top-level (native)
+         qCInfo(lcWidgetPainting) << "Marking" << region << "of top level"
+@@ -1012,6 +1020,10 @@ void QWidgetRepaintManager::flush(QWidget *widget, const QRegion &region, QPlatf
+     if (tlw->testAttribute(Qt::WA_DontShowOnScreen) || widget->testAttribute(Qt::WA_DontShowOnScreen))
+         return;
+ 
++    //add support for kobo dont flush backing store flag
++    if (tlw->testAttribute(Qt::WA_KoboDontFlushBackingStore) || widget->testAttribute(Qt::WA_KoboDontFlushBackingStore))
++        return;
++
+     // Foreign Windows do not have backing store content and must not be flushed
+     if (QWindow *widgetWindow = widget->windowHandle()) {
+         if (widgetWindow->type() == Qt::ForeignWindow)
+@@ -1092,8 +1104,9 @@ void QWidgetRepaintManager::flush(QWidget *widget, const QRegion &region, QPlatf
+         }
+     } else {
+         qCInfo(lcWidgetPainting) << "Flushing" << region << "of" << widget;
+-        store->flush(region, widget->windowHandle(), offset);
++        store->flush(region, widget->windowHandle(), offset, dirtyWidgetFlags);
+     }
++    dirtyWidgetFlags.clear();
+ }
+ 
+ // ---------------------------------------------------------------------------
+diff --git a/src/widgets/kernel/qwidgetrepaintmanager_p.h b/src/widgets/kernel/qwidgetrepaintmanager_p.h
+index 4378974..e98928b 100644
+--- a/src/widgets/kernel/qwidgetrepaintmanager_p.h
++++ b/src/widgets/kernel/qwidgetrepaintmanager_p.h
+@@ -98,6 +98,8 @@ private:
+     QWidget *tlw = nullptr;
+     QBackingStore *store = nullptr;
+ 
++    QList<QPair<QRect,uint64_t> > dirtyWidgetFlags;
++
+     QRegion dirty; // needsRepaint
+     QList<QWidget *> dirtyWidgets;
+     QList<QWidget *> dirtyRenderToTextureWidgets;
+diff --git a/src/widgets/kernel/qwidgetwindow.cpp b/src/widgets/kernel/qwidgetwindow.cpp
+index 76c77e6..b6351cd 100644
+--- a/src/widgets/kernel/qwidgetwindow.cpp
++++ b/src/widgets/kernel/qwidgetwindow.cpp
+@@ -1133,6 +1133,14 @@ void QWidgetWindow::updateObjectName()
+     setObjectName(name);
+ }
+ 
++uint64_t QWidgetWindow::dirtyFlags() const
++{
++    auto wp = qt_widget_private(widget());
++    uint64_t attr5 = (uint64_t)(wp->high_attributes[5]);
++    uint64_t flag = (attr5 << 8*sizeof(uint)) | wp->high_attributes[4];
++    return flag;
++}
++
+ QT_END_NAMESPACE
+ 
+ #include "moc_qwidgetwindow_p.cpp"
+diff --git a/src/widgets/kernel/qwidgetwindow_p.h b/src/widgets/kernel/qwidgetwindow_p.h
+index 92f1a8b..081d83e 100644
+--- a/src/widgets/kernel/qwidgetwindow_p.h
++++ b/src/widgets/kernel/qwidgetwindow_p.h
+@@ -38,6 +38,7 @@ public:
+     ~QWidgetWindow();
+ 
+     QWidget *widget() const { return m_widget; }
++    uint64_t dirtyFlags() const;
+ #if QT_CONFIG(accessibility)
+     QAccessibleInterface *accessibleRoot() const override;
+ #endif
+diff --git a/src/widgets/styles/qstylesheetstyle.cpp b/src/widgets/styles/qstylesheetstyle.cpp
+index e9443ac..b72dbde 100644
+--- a/src/widgets/styles/qstylesheetstyle.cpp
++++ b/src/widgets/styles/qstylesheetstyle.cpp
+@@ -1565,11 +1565,14 @@ public:
+         QVariant value;
+         QString valueStr;
+         QObject *obj = OBJECT_PTR(node);
+-        const int propertyIndex = obj->metaObject()->indexOfProperty(name.toLatin1());
++        QByteArray namebytes = name.toLatin1();
++        const int propertyIndex = obj->metaObject()->indexOfProperty(namebytes);
+         if (propertyIndex == -1) {
+             value = obj->property(name.toLatin1()); // might be a dynamic property
+             if (!value.isValid()) {
+-                if (name == "class"_L1) {
++                if (namebytes.startsWith("qApp_")) {
++                    value = qApp->property(namebytes.mid(5));
++                } else if (name == "class"_L1) {
+                     QString className = QString::fromLatin1(obj->metaObject()->className());
+                     if (className.contains(u':'))
+                         className.replace(u':', u'-');
+@@ -2815,11 +2818,6 @@ static void updateObjects(const QList<const QObject *>& objects)
+         if (auto widget = qobject_cast<QWidget*>(const_cast<QObject*>(object))) {
+             widget->style()->polish(widget);
+             QCoreApplication::sendEvent(widget, &event);
+-            QList<const QObject *> children;
+-            children.reserve(widget->children().size() + 1);
+-            for (auto child: std::as_const(widget->children()))
+-                children.append(child);
+-            updateObjects(children);
+         }
+     }
+ }
+@@ -3000,10 +2998,7 @@ void QStyleSheetStyle::polish(QPalette &pal)
+ 
+ void QStyleSheetStyle::repolish(QWidget *w)
+ {
+-    QList<const QObject *> children;
+-    children.reserve(w->children().size() + 1);
+-    for (auto child: std::as_const(w->children()))
+-        children.append(child);
++    QList<const QObject *> children = w->findChildren<const QObject *>(QString());
+     children.append(w);
+     styleSheetCaches->styleSheetCache.remove(w);
+     updateObjects(children);
+@@ -5982,6 +5977,16 @@ QRect QStyleSheetStyle::subControlRect(ComplexControl cc, const QStyleOptionComp
+                     QRect sr = (sb->orientation == Qt::Horizontal)
+                                ? QRect(sliderstart, contentRect.top(), sliderlen, contentRect.height())
+                                : QRect(contentRect.left(), sliderstart, contentRect.width(), sliderlen);
++
++                    if (hasStyleRule(w, PseudoElement_ScrollBarSlider)) {
++                        QRenderRule sliderRule = renderRule(w, opt, PseudoElement_ScrollBarSlider);
++                        if (sliderRule.hasBox() || sliderRule.hasGeometry()) {
++                            QPoint oldCenter = sr.center();
++                            sr.setSize(sliderRule.adjustSize(sr.size()));
++                            sr.moveCenter(oldCenter);
++                        }
++                    }
++
+                     if (sc == SC_ScrollBarSubPage)
+                         sr = QRect(contentRect.topLeft(), sb->orientation == Qt::Horizontal ? sr.bottomLeft() : sr.topRight());
+                     else if (sc == SC_ScrollBarAddPage)
+@@ -6385,6 +6390,7 @@ void QStyleSheetStyle::updateStyleSheetFont(QWidget* w) const
+     QRenderRule rule = renderRule(container, PseudoElement_None,
+             PseudoClass_Active | PseudoClass_Enabled | extendedPseudoClass(container));
+ 
++    //default is false
+     const bool useStyleSheetPropagationInWidgetStyles =
+         QCoreApplication::testAttribute(Qt::AA_UseStyleSheetPropagationInWidgetStyles);
+ 
+@@ -6403,6 +6409,12 @@ void QStyleSheetStyle::updateStyleSheetFont(QWidget* w) const
+         QFont wf = w->d_func()->localFont();
+         QFont font = rule.font.resolve(wf);
+         font.setResolveMask(wf.resolveMask() | rule.font.resolveMask());
++        
++	auto property = qApp->property("fontScale");
++	if (font.pixelSize() != -1 && property.isValid()) {
++            font.setPixelSize(qRound(font.pixelSize() * property.toFloat()));
++	}
++
+ 
+         if ((!w->isWindow() || w->testAttribute(Qt::WA_WindowPropagation))
+             && isNaturalChild(w) && qobject_cast<QWidget *>(w->parent())) {
+diff --git a/src/widgets/widgets/qplaintextedit.h b/src/widgets/widgets/qplaintextedit.h
+index d42b67f..32e37b0 100644
+--- a/src/widgets/widgets/qplaintextedit.h
++++ b/src/widgets/widgets/qplaintextedit.h
+@@ -276,6 +276,9 @@ public:
+     int cursorWidth() const;
+ 
+     void requestUpdate();
++    virtual QSizeF getEllipsisPos() const { return QSizeF(); }
++    virtual int lineCount() const { return 0; }
++    virtual bool getElided() const { return false; }
+ 
+ protected:
+     void documentChanged(int from, int /*charsRemoved*/, int charsAdded) override;

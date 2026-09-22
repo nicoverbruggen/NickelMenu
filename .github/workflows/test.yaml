@@ -22,3 +22,5 @@ jobs:
       run: cd test/syms && go build -o ../../test.syms .
     - name: Run
       run: cd src && ../test.syms
+    - name: Test action registry and configuration parser
+      run: cd test/syms && go test ./...

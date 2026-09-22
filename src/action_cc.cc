@@ -1,4 +1,7 @@
+#include "compat.h"
+#include <memory>
 #include <QApplication>
+#include <QByteArray>
 #include <QProcess>
 #include <QScreen>
 #include <QShowEvent>
@@ -23,6 +26,10 @@
 
 #include "action.h"
 #include "util.h"
+
+#if (NM_QT_MAJOR >= 6) != (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+#error NM_QT_MAJOR does not match the Qt version
+#endif
 
 // A note about Nickel dlsyms:
 //
@@ -60,7 +67,7 @@ typedef void MoreController;
 typedef void MainWindowController;
 typedef void BluetoothManager;
 
-#define NM_ACT_SYM(var, sym) reinterpret_cast<void*&>(var) = dlsym(RTLD_DEFAULT, sym)
+#define NM_ACT_SYM(var, sym) reinterpret_cast<void*&>(var) = nm_resolve(sym)
 #define NM_ACT_XSYM(var, symb, err) do { \
     NM_ACT_SYM(var, symb);               \
     NM_CHECK(nullptr, var, err);         \
@@ -96,7 +103,11 @@ SettingsSymbols prepare_Settings_symbols() {
 
     //libnickel 4.6 * _ZN8SettingsC2ERK6Deviceb _ZN8SettingsC2ERK6Device
     NM_ACT_SYM(symbols.Settings_Settings, "_ZN8SettingsC2ERK6Deviceb");
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    symbols.Settings_SettingsLegacy = nullptr;
+#else
     NM_ACT_SYM(symbols.Settings_SettingsLegacy, "_ZN8SettingsC2ERK6Device");
+#endif
     NM_CHECK(SettingsSymbols{}, symbols.Settings_Settings || symbols.Settings_SettingsLegacy, "could not dlsym Settings constructor (new and/or old)");
 
     //libnickel 4.6 * _ZN8SettingsD2Ev
@@ -123,8 +134,14 @@ NM_ACTION_(nickel_open) {
     char *arg2 = strtrim(tmp1);
     NM_CHECK(nullptr, arg2, "could not find a : in the argument");
 
+#if NM_QT_MAJOR >= 6
+    if ((!strcmp(arg1, "library") && !strcmp(arg2, "pocket")) ||
+        (!strcmp(arg1, "reading_life") && !strcmp(arg2, "awards")))
+        NM_ERR_RET(nullptr, "nickel_open view '%s:%s' is not supported on Qt 6 firmware", arg1, arg2);
+#endif
+
     //libnickel 4.23.15505 * _ZN11MainNavViewC1EP7QWidget
-    if (dlsym(RTLD_DEFAULT, "_ZN11MainNavViewC1EP7QWidget")) {
+    if (nm_resolve("_ZN11MainNavViewC1EP7QWidget")) {
         NM_LOG("nickel_open: detected firmware >15505 (new nav tab bar), checking special cases");
 
         if (!strcmp(arg1, "library") && (!strcmp(arg2, "dropbox") || !strcmp(arg2, "gdrive"))) {
@@ -146,10 +163,9 @@ NM_ACTION_(nickel_open) {
             MoreController *(*MoreController__deMoreController)(MoreController* _this);
             NM_ACT_XSYM(MoreController__deMoreController, "_ZN14MoreControllerD0Ev", "could not dlsym MoreController::~MoreController");
 
-            // As of at least 16704, maybe earlier, a MoreController is required.
-            // It seems 44 bytes is required, over allocate to be on the safe side
-            MoreController *mc = reinterpret_cast<MoreController*>(::operator new(128));
-            NM_CHECK(nullptr, mc, "could not allocate memory for MoreController");
+            // Cloud navigation needs the firmware's MoreController object.
+            MoreController *mc = reinterpret_cast<MoreController*>(nm_native_storage("MoreController", 128));
+            NM_CHECK(nullptr, mc, "native MoreController size unavailable");
             mc = MoreController__MoreController(mc);
             NM_CHECK(nullptr, mc, "MoreController::MoreController returned null pointer");
 
@@ -211,9 +227,9 @@ NM_ACTION_(nickel_open) {
     void (*fn_d)(void *_this);
     void (*fn_f)(void *_this);
 
-    reinterpret_cast<void*&>(fn_c) = dlsym(RTLD_DEFAULT, sym_c);
-    reinterpret_cast<void*&>(fn_d) = dlsym(RTLD_DEFAULT, sym_d);
-    reinterpret_cast<void*&>(fn_f) = dlsym(RTLD_DEFAULT, sym_f);
+    reinterpret_cast<void*&>(fn_c) = nm_resolve(sym_c);
+    reinterpret_cast<void*&>(fn_d) = nm_resolve(sym_d);
+    reinterpret_cast<void*&>(fn_f) = nm_resolve(sym_f);
 
     NM_CHECK(nullptr, fn_c, "could not find constructor %s (is your firmware too old?)", sym_c);
     NM_CHECK(nullptr, fn_d, "could not find destructor %s (is your firmware too old?)", sym_d);
@@ -267,6 +283,7 @@ NM_ACTION_(nickel_setting) {
         NM_ERR_RET(nullptr, "unknown action '%s' for nickel_setting: expected 'toggle', 'enable', or 'disable'", arg1);
 
     SettingsSymbols settings_syms = prepare_Settings_symbols();
+    NM_CHECK(nullptr, !nm_err_peek(), "Settings ABI unavailable");
     auto Settings_Settings = settings_syms.Settings_Settings;
     auto Settings_SettingsLegacy = settings_syms.Settings_SettingsLegacy;
     auto Settings_SettingsD = settings_syms.Settings_SettingsD;
@@ -274,11 +291,15 @@ NM_ACTION_(nickel_setting) {
     auto Settings_saveSetting = settings_syms.Settings_saveSetting;
 
     Device *dev = get_Device_getCurrentDevice();
-    Settings *settings = alloca(128); // way larger than it is, but better to be safe
+    NM_CHECK(nullptr, dev, "current Device unavailable");
+    Settings *settings = alloca(128); // Qt6 checks the Settings implementation before using this storage.
     if (Settings_Settings)
         Settings_Settings(settings, dev, false);
     else if (Settings_SettingsLegacy)
         Settings_SettingsLegacy(settings, dev);
+    // Compatibility errors after construction must still release Settings resources.
+    auto destroySettings = [Settings_SettingsD](Settings *value) { Settings_SettingsD(value); };
+    std::unique_ptr<Settings, decltype(destroySettings)> settingsLifetime(settings, destroySettings);
 
     // to cast the generic Settings into its subclass FeatureSettings, the
     // vtable pointer at the beginning needs to be replaced with the target
@@ -300,7 +321,7 @@ NM_ACTION_(nickel_setting) {
     #define vtable_target(x) reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(x)+8)
 
     //libnickel 4.6 * _ZTV8Settings
-    void *Settings_vtable = dlsym(RTLD_DEFAULT, "_ZTV8Settings");
+    void *Settings_vtable = nm_resolve("_ZTV8Settings");
     NM_CHECK(nullptr, Settings_vtable, "could not dlsym the vtable for Settings");
     NM_CHECK(nullptr, vtable_ptr(settings) == vtable_target(Settings_vtable), "unexpected vtable layout (expected class to start with a pointer to 8 bytes into the vtable)");
 
@@ -308,7 +329,7 @@ NM_ACTION_(nickel_setting) {
 
     if (!strcmp(arg2, "invert") || !strcmp(arg2, "screenshots")) {
         //libnickel 4.6 * _ZTV15FeatureSettings
-        void *FeatureSettings_vtable = dlsym(RTLD_DEFAULT, "_ZTV15FeatureSettings");
+        void *FeatureSettings_vtable = nm_resolve("_ZTV15FeatureSettings");
         NM_CHECK(nullptr, FeatureSettings_vtable, "could not dlsym the vtable for FeatureSettings");
         vtable_ptr(settings) = vtable_target(FeatureSettings_vtable);
 
@@ -350,7 +371,7 @@ NM_ACTION_(nickel_setting) {
             vtable_ptr(settings) = vtable_target(FeatureSettings_vtable);
         }
     } else if (!strcmp(arg2, "dark_mode")) {
-        void *ReadingSettings_vtable = dlsym(RTLD_DEFAULT, "_ZTV15ReadingSettings");
+        void *ReadingSettings_vtable = nm_resolve("_ZTV15ReadingSettings");
         NM_CHECK(nullptr, ReadingSettings_vtable, "could not dlsym the vtable for ReadingSettings");
         vtable_ptr(settings) = vtable_target(ReadingSettings_vtable);
 
@@ -394,7 +415,7 @@ NM_ACTION_(nickel_setting) {
             QApplication::sendEvent(cv, &ev);
         }
     } else if (!strcmp(arg2, "lockscreen")) {
-        void *PowerSettings_vtable = dlsym(RTLD_DEFAULT, "_ZTV13PowerSettings");
+        void *PowerSettings_vtable = nm_resolve("_ZTV13PowerSettings");
         NM_CHECK(nullptr, PowerSettings_vtable, "could not dlsym the vtable for PowerSettings");
         vtable_ptr(settings) = vtable_target(PowerSettings_vtable);
 
@@ -418,7 +439,7 @@ NM_ACTION_(nickel_setting) {
         vtable_ptr(settings) = vtable_target(PowerSettings_vtable);
     } else if (!strcmp(arg2, "force_wifi") || !strcmp(arg2, "auto_usb_gadget")) {
         //libnickel 4.6 * _ZTV11DevSettings
-        void *PowerSettings_vtable = dlsym(RTLD_DEFAULT, "_ZTV11DevSettings");
+        void *PowerSettings_vtable = nm_resolve("_ZTV11DevSettings");
         NM_CHECK(nullptr, PowerSettings_vtable, "could not dlsym the vtable for DevSettings");
         vtable_ptr(settings) = vtable_target(PowerSettings_vtable);
 
@@ -439,20 +460,19 @@ NM_ACTION_(nickel_setting) {
         vtable_ptr(settings) = vtable_target(PowerSettings_vtable);
     } else {
         // TODO: more settings?
-        Settings_SettingsD(settings);
         NM_ERR_RET(nullptr, "unknown setting name '%s' (arg: '%s')", arg2, arg);
     }
 
     #undef vtable_ptr
     #undef vtable_target
 
-    Settings_SettingsD(settings);
 
     return (strcmp(arg2, "invert") && strcmp(arg2, "dark_mode")) // invert and dark mode are obvious
         ? nm_action_result_toast("%s %s", v ? "disabled" : "enabled", arg2)
         : nm_action_result_silent();
 }
 
+#if NM_QT_MAJOR == 5
 NM_ACTION_(nickel_extras) {
     const char* mimetype;
     if (strchr(arg, '/'))                   mimetype = arg;
@@ -463,13 +483,15 @@ NM_ACTION_(nickel_extras) {
     else if (!strcmp(arg, "word_scramble")) mimetype = "application/x-games-Boggle";
     else NM_ERR_RET(nullptr, "unknown beta feature name or plugin mimetype '%s'", arg);
 
-    //libnickel 4.6 * _ZN18ExtrasPluginLoader10loadPluginEPKc
+    //libnickel 4.6 4 _ZN18ExtrasPluginLoader10loadPluginEPKc
     void (*ExtrasPluginLoader_loadPlugin)(const char*);
     NM_ACT_XSYM(ExtrasPluginLoader_loadPlugin, "_ZN18ExtrasPluginLoader10loadPluginEPKc", "could not dlsym ExtrasPluginLoader::loadPlugin");
     ExtrasPluginLoader_loadPlugin(mimetype);
 
     return nm_action_result_silent();
 }
+
+#endif
 
 NM_ACTION_(nickel_browser) {
     bool modal;
@@ -515,9 +537,12 @@ NM_ACTION_(nickel_browser) {
     NM_ACT_SYM(BrowserWorkflowManager_BrowserWorkflowManager, "_ZN22BrowserWorkflowManagerC1EP7QObject");
     NM_CHECK(nullptr, BrowserWorkflowManager_sharedInstance || BrowserWorkflowManager_BrowserWorkflowManager, "could not dlsym BrowserWorkflowManager constructor (4.11.11911+) or sharedInstance");
 
-    //libnickel 4.6 * _ZN22BrowserWorkflowManager11openBrowserEbRK4QUrlRK7QString
+    //libnickel 4.6 * _ZN22BrowserWorkflowManager11openBrowserEbRK4QUrlRK7QString _ZN22BrowserWorkflowManager11openBrowserEbRK4QUrlRK7QStringb
     void (*BrowserWorkflowManager_openBrowser)(BrowserWorkflowManager*, bool, QUrl*, QString*); // the bool is whether to open it as a modal, the QUrl is the URL to load(if !QUrl::isValid(), it loads the homepage), the string is CSS to inject
-    NM_ACT_XSYM(BrowserWorkflowManager_openBrowser, "_ZN22BrowserWorkflowManager11openBrowserEbRK4QUrlRK7QString", "could not dlsym BrowserWorkflowManager::openBrowser");
+    void (*BrowserWorkflowManager_openBrowserQt6)(BrowserWorkflowManager*, bool, QUrl*, QString*, bool); // Qt6 firmware adds a bool; what it means is not known, so we pass false
+    NM_ACT_SYM(BrowserWorkflowManager_openBrowser, "_ZN22BrowserWorkflowManager11openBrowserEbRK4QUrlRK7QString");
+    NM_ACT_SYM(BrowserWorkflowManager_openBrowserQt6, "_ZN22BrowserWorkflowManager11openBrowserEbRK4QUrlRK7QStringb");
+    NM_CHECK(nullptr, BrowserWorkflowManager_openBrowser || BrowserWorkflowManager_openBrowserQt6, "could not dlsym BrowserWorkflowManager::openBrowser (Qt5 or Qt6 signature)");
 
     // note: everything must be on the heap since if it isn't connected, it
     //       passes it as-is to the connected signal, which will be used
@@ -526,7 +551,7 @@ NM_ACTION_(nickel_browser) {
     BrowserWorkflowManager *bwm;
 
     if (BrowserWorkflowManager_BrowserWorkflowManager) {
-        bwm = calloc(1, 128); // as of 4.20.14622, it's actually 20 bytes, but we're going to stay on the safe side
+        bwm = nm_native_storage("BrowserWorkflowManager", 128);
         NM_CHECK(nullptr, bwm, "could not allocate memory for BrowserWorkflowManager");
         BrowserWorkflowManager_BrowserWorkflowManager(bwm, nullptr);
     } else {
@@ -534,7 +559,10 @@ NM_ACTION_(nickel_browser) {
         NM_CHECK(nullptr, bwm, "could not get shared browser workflow manager pointer");
     }
 
-    BrowserWorkflowManager_openBrowser(bwm, modal, url, css);
+    if (BrowserWorkflowManager_openBrowser)
+        BrowserWorkflowManager_openBrowser(bwm, modal, url, css);
+    else
+        BrowserWorkflowManager_openBrowserQt6(bwm, modal, url, css, false);
 
     return nm_action_result_silent();
 }
@@ -585,6 +613,19 @@ NM_ACTION_(nickel_misc) {
         sleep(1);
         PlugWorkflowManager_unplugged(wf);
     } else if (!strcmp(arg, "force_usb_connection")) {
+#if NM_QT_MAJOR >= 6
+        // The Qt6 runtime can leave the hardware FIFO without a reader. Opening
+        // it for writing would block Nickel's GUI thread indefinitely.
+        PlugWorkflowManager *(*PlugWorkflowManager_sharedInstance)();
+        void (*PlugWorkflowManager_plugged)(PlugWorkflowManager*);
+        //libnickel 5.18.270971 * _ZN19PlugWorkflowManager14sharedInstanceEv
+        NM_ACT_XSYM(PlugWorkflowManager_sharedInstance, "_ZN19PlugWorkflowManager14sharedInstanceEv", "could not dlsym PlugWorkflowManager::sharedInstance");
+        //libnickel 5.18.270971 * _ZN19PlugWorkflowManager7pluggedEv
+        NM_ACT_XSYM(PlugWorkflowManager_plugged, "_ZN19PlugWorkflowManager7pluggedEv", "could not dlsym PlugWorkflowManager::plugged");
+        PlugWorkflowManager *wf = PlugWorkflowManager_sharedInstance();
+        NM_CHECK(nullptr, wf, "could not get shared PlugWorkflowManager pointer");
+        PlugWorkflowManager_plugged(wf);
+#else
         // we could call libnickel directly, but I prefer not to
         FILE *nhs;
         NM_CHECK(nullptr, (nhs = fopen("/tmp/nickel-hardware-status", "w")), "could not open nickel hardware status pipe: %m");
@@ -593,6 +634,7 @@ NM_ACTION_(nickel_misc) {
         NM_CHECK(nullptr, fputs(msg, nhs) >= 0, "could not write message '%s' to pipe: %m", msg);
 
         fclose(nhs);
+#endif
     } else {
         NM_ERR_RET(nullptr, "unknown action '%s'", arg);
     }
@@ -705,7 +747,8 @@ NM_ACTION_(nickel_orientation) {
 
     // ---
 
-    //libnickel 4.6 * _ZN22QWindowSystemInterface29handleScreenOrientationChangeEP7QScreenN2Qt17ScreenOrientationE
+    //libnickel 4.6 4 _ZN22QWindowSystemInterface29handleScreenOrientationChangeEP7QScreenN2Qt17ScreenOrientationE
+    //libqt6gui 5.18.270971 * _ZN22QWindowSystemInterface29handleScreenOrientationChangeEP7QScreenN2Qt17ScreenOrientationE
     void (*QWindowSystemInterface_handleScreenOrientationChange)(QScreen*, Qt::ScreenOrientation);
     NM_ACT_XSYM(QWindowSystemInterface_handleScreenOrientationChange, "_ZN22QWindowSystemInterface29handleScreenOrientationChangeEP7QScreenN2Qt17ScreenOrientationE", "could not dlsym QWindowSystemInterface::handleScreenOrientationChange (did the way Nickel handles the screen orientation sensor change?)");
 
@@ -713,7 +756,7 @@ NM_ACTION_(nickel_orientation) {
     bool (*Device_hasOrientationSensor)(Device*);
     NM_ACT_XSYM(Device_hasOrientationSensor, "_ZNK6Device20hasOrientationSensorEv", "could not dlsym Device::hasOrientationSensor");
 
-    void *ApplicationSettings_vtable = dlsym(RTLD_DEFAULT, "_ZTV19ApplicationSettings");
+    void *ApplicationSettings_vtable = nm_resolve("_ZTV19ApplicationSettings");
     NM_CHECK(nullptr, ApplicationSettings_vtable, "could not dlsym the vtable for ApplicationSettings");
 
     //libnickel 4.13.12638 * _ZN19ApplicationSettings20setLockedOrientationE6QFlagsIN2Qt17ScreenOrientationEE
@@ -725,17 +768,22 @@ NM_ACTION_(nickel_orientation) {
     NM_ACT_XSYM(ApplicationSettings_lockedOrientation, "_ZN19ApplicationSettings17lockedOrientationEv", "could not dlsym ApplicationSettings::lockedOrientation");
 
     Device *dev = get_Device_getCurrentDevice();
+    NM_CHECK(nullptr, dev, "current Device unavailable");
 
     SettingsSymbols settings_syms = prepare_Settings_symbols();
+    NM_CHECK(nullptr, !nm_err_peek(), "Settings ABI unavailable");
     auto Settings_Settings = settings_syms.Settings_Settings;
     auto Settings_SettingsLegacy = settings_syms.Settings_SettingsLegacy;
     auto Settings_SettingsD = settings_syms.Settings_SettingsD;
 
-    Settings *settings = alloca(128); // way larger than it is, but better to be safe
+    Settings *settings = alloca(128); // Qt6 checks the Settings implementation before using this storage.
     if (Settings_Settings)
         Settings_Settings(settings, dev, false);
     else if (Settings_SettingsLegacy)
         Settings_SettingsLegacy(settings, dev);
+    // Compatibility errors after construction must still release Settings resources.
+    auto destroySettings = [Settings_SettingsD](Settings *value) { Settings_SettingsD(value); };
+    std::unique_ptr<Settings, decltype(destroySettings)> settingsLifetime(settings, destroySettings);
 
     #define vtable_ptr(x) *reinterpret_cast<void**&>(x)
     #define vtable_target(x) reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(x)+8)
@@ -755,7 +803,13 @@ NM_ACTION_(nickel_orientation) {
     // reading is updated, which would be essentially instantly if the device
     // isn't on a perfectly still surface.
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QGuiApplication::primaryScreen()->setOrientationUpdateMask(o);
+#else
+    // Qt 6 removed the update mask; every orientation change reaches the
+    // screen, so there is nothing to unmask here. The sensor can still
+    // override us later, as it can on Qt 5 when the mask allows it.
+#endif
 
     // Set the current locked orientation to the new one to ensure our new
     // orientation will be allowed.
@@ -834,7 +888,6 @@ NM_ACTION_(nickel_orientation) {
     #undef vtable_ptr
     #undef vtable_target
 
-    Settings_SettingsD(settings);
 
     return nm_action_result_silent();
 }
@@ -871,16 +924,18 @@ NM_ACTION_(cmd_spawn) {
 
 NM_ACTION_(cmd_output) {
     // split the timeout into timeout, put the command into cmd
-    char *tmp = strdup(arg);
-    char *cmd = tmp;
+    // strtrim writes the terminator even for an empty string. Keep it in writable storage.
+    QByteArray storage(arg, strlen(arg) + 1);
+    char *cmd = storage.data();
     char *tmp1 = strtrim(strsep(&cmd, ":")), *tmp2;
     long timeout = strtol(tmp1, &tmp2, 10);
     cmd = strtrim(cmd);
     NM_CHECK(nullptr, *tmp1 && !*tmp2 && timeout > 0 && timeout < 10000, "invalid timeout '%s'", tmp1);
+    NM_CHECK(nullptr, cmd, "expected a : and command after the timeout");
 
     // parse the quiet option and update cmd if it's specified
-    char *tmp3 = strdup(cmd);
-    char *tmp4 = tmp3;
+    QByteArray options(cmd, strlen(cmd) + 1);
+    char *tmp4 = options.data();
     char *tmp5 = strtrim(strsep(&tmp4, ":"));
     bool quiet = tmp4 && !strcmp(tmp5, "quiet");
     if (tmp4 && quiet)
@@ -897,9 +952,6 @@ NM_ACTION_(cmd_output) {
         }),
         QIODevice::ReadOnly
     );
-
-    free(tmp3);
-    free(tmp);
 
     bool ok = proc.waitForFinished(timeout);
     if (!ok) {
@@ -927,6 +979,8 @@ NM_ACTION_(cmd_output) {
         : nm_action_result_msg("%s", qPrintable(Qt::convertFromPlainText(out, Qt::WhiteSpacePre)));
 }
 
+// The tested Qt6 firmware lacks the on/off symbols; check/scan need hardware validation.
+#if NM_QT_MAJOR == 5
 NM_ACTION_(nickel_bluetooth) {
     enum BLUETOOTH_ACTION {
         ENABLE  = 0b00001,
@@ -945,32 +999,31 @@ NM_ACTION_(nickel_bluetooth) {
     else
         NM_ERR_RET(nullptr, "unknown nickel_bluetooth action '%s'", arg);
 
-    //libnickel 4.34.20097 * _ZN16BluetoothManager14sharedInstanceEv
+    //libnickel 4.34.20097 4 _ZN16BluetoothManager14sharedInstanceEv
     BluetoothManager *(*BluetoothManager_sharedInstance)();
     NM_ACT_XSYM(BluetoothManager_sharedInstance, "_ZN16BluetoothManager14sharedInstanceEv", "could not dlsym BluetoothManager::sharedInstance");
 
-    //libnickel 4.34.20097 * _ZNK16BluetoothManager2upEv
+    //libnickel 4.34.20097 4 _ZNK16BluetoothManager2upEv
     uint (*BluetoothManager_up)(BluetoothManager *);
     NM_ACT_XSYM(BluetoothManager_up, "_ZNK16BluetoothManager2upEv", "could not dlsym BluetoothManager::up");
 
-    //libnickel 4.34.20097 * _ZN16BluetoothManager13requestTurnOnEv _ZN16BluetoothManager2onEv
+    //libnickel 4.34.20097 4 _ZN16BluetoothManager13requestTurnOnEv _ZN16BluetoothManager2onEv
     void (*BluetoothManager_on)(BluetoothManager *);
     void (*BluetoothManager_onLegacy)(BluetoothManager *);
     NM_ACT_SYM(BluetoothManager_on, "_ZN16BluetoothManager13requestTurnOnEv");
     NM_ACT_SYM(BluetoothManager_onLegacy, "_ZN16BluetoothManager2onEv");
-    NM_CHECK(nullptr, BluetoothManager_on || BluetoothManager_onLegacy, "could not dlsym BluetoothManager::requestTurnOn");
 
-    //libnickel 4.34.20097 * _ZN16BluetoothManager4scanEv
+    //libnickel 4.34.20097 4 _ZN16BluetoothManager4scanEv
     void (*BluetoothManager_scan)(BluetoothManager *);
     NM_ACT_XSYM(BluetoothManager_scan, "_ZN16BluetoothManager4scanEv", "could not dlsym BluetoothManager::BluetoothManager::scanEv");
 
-    //libnickel 4.34.20097 * _ZN16BluetoothManager8stopScanEv
+    //libnickel 4.34.20097 4 _ZN16BluetoothManager8stopScanEv
     void (*BluetoothManager_stopScan)(BluetoothManager *);
     NM_ACT_XSYM(BluetoothManager_stopScan, "_ZN16BluetoothManager8stopScanEv", "could not dlsym BluetoothManager::stopScan");
 
-    //libnickel 4.34.20097 * _ZN16BluetoothManager3offEv
+    //libnickel 4.34.20097 4 _ZN16BluetoothManager3offEv
     void (*BluetoothManager_off)(BluetoothManager *);
-    NM_ACT_XSYM(BluetoothManager_off, "_ZN16BluetoothManager3offEv", "could not dlsym BluetoothManager::off");
+    NM_ACT_SYM(BluetoothManager_off, "_ZN16BluetoothManager3offEv");
 
     BluetoothManager *btm = BluetoothManager_sharedInstance();
     NM_CHECK(nullptr, btm, "could not get shared bluetooth manager pointer");
@@ -983,14 +1036,16 @@ NM_ACTION_(nickel_bluetooth) {
         case CHECK:
             return nm_action_result_toast("Bluetooth is %s.", isUp ? "on" : "off");
         case ENABLE:
+            NM_CHECK(nullptr, BluetoothManager_on || BluetoothManager_onLegacy, "could not dlsym BluetoothManager::requestTurnOn");
             if (BluetoothManager_on) {
                 BluetoothManager_on(btm);
-            } else if (BluetoothManager_onLegacy) {
+            } else {
                 BluetoothManager_onLegacy(btm);
             }
             BluetoothManager_scan(btm);
             return nm_action_result_toast("Bluetooth turned on.");
         case DISABLE:
+            NM_CHECK(nullptr, BluetoothManager_off, "could not dlsym BluetoothManager::off");
             BluetoothManager_stopScan(btm);
             BluetoothManager_off(btm);
             return nm_action_result_toast("Bluetooth turned off.");
@@ -1002,6 +1057,7 @@ NM_ACTION_(nickel_bluetooth) {
             break;
     }
 }
+#endif
 
 NM_ACTION_(nickel_screenshot) {
     enum SCREENSHOT_ACTION {
@@ -1014,14 +1070,26 @@ NM_ACTION_(nickel_screenshot) {
         NM_ERR_RET(nullptr, "unknown nickel_screenshot action '%s'", arg);
 
     QObject* app = nullptr;
-    QKeyEvent* press = nullptr;
-    QKeyEvent* release = nullptr;
+    QWidget* receiver = QApplication::focusWidget();
+    if (!receiver)
+        receiver = QApplication::activeWindow();
+    // Closing the menu can briefly leave Qt without an active window.
+    if (!receiver) {
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            if (widget->isVisible() && widget->inherits("MainWindowView")) {
+                receiver = widget;
+                break;
+            }
+        }
+    }
+    NM_CHECK(nullptr, receiver, "could not find a widget to receive the screenshot key");
 
     #define vtable_ptr(x) *reinterpret_cast<void**&>(x)
     #define vtable_target(x) reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(x)+8)
 
     // Prepare Settings symbols
     SettingsSymbols settings_syms = prepare_Settings_symbols();
+    NM_CHECK(nullptr, !nm_err_peek(), "Settings ABI unavailable");
     auto Settings_Settings = settings_syms.Settings_Settings;
     auto Settings_SettingsLegacy = settings_syms.Settings_SettingsLegacy;
     auto Settings_SettingsD = settings_syms.Settings_SettingsD;
@@ -1029,16 +1097,20 @@ NM_ACTION_(nickel_screenshot) {
     auto Settings_saveSetting = settings_syms.Settings_saveSetting;
 
     Device *dev = get_Device_getCurrentDevice();
-    Settings *settings = alloca(128); // way larger than it is, but better to be safe
+    NM_CHECK(nullptr, dev, "current Device unavailable");
+    Settings *settings = alloca(128); // Qt6 checks the Settings implementation before using this storage.
     if (Settings_Settings)
         Settings_Settings(settings, dev, false);
     else if (Settings_SettingsLegacy)
         Settings_SettingsLegacy(settings, dev);
+    // Compatibility errors after construction must still release Settings resources.
+    auto destroySettings = [Settings_SettingsD](Settings *value) { Settings_SettingsD(value); };
+    std::unique_ptr<Settings, decltype(destroySettings)> settingsLifetime(settings, destroySettings);
 
     QVariant v1;
 
     //libnickel 4.6 * _ZTV15FeatureSettings
-    void *FeatureSettings_vtable = dlsym(RTLD_DEFAULT, "_ZTV15FeatureSettings");
+    void *FeatureSettings_vtable = nm_resolve("_ZTV15FeatureSettings");
     NM_CHECK(nullptr, FeatureSettings_vtable, "could not dlsym the vtable for FeatureSettings");
     vtable_ptr(settings) = vtable_target(FeatureSettings_vtable);
 
@@ -1046,11 +1118,7 @@ NM_ACTION_(nickel_screenshot) {
     bool org_screenshot_enabled = false;
 
     switch (action) {
-        case CAPTURE:
-            // Pressing the Power button on Kobo is the same as pressing the Escape key on keyboard
-            // So to take screenshot, we just need to:
-            // 1. Enable the "Screenshots" feature
-            // 2. Send an "Escape" KeyEvent to the QApplication instance
+        case CAPTURE: {
 
             // Get Nickel::Application->notify()
             //libnickel 4.6 * _ZN18Nickel3Application6notifyEP7QObjectP6QEvent
@@ -1070,11 +1138,17 @@ NM_ACTION_(nickel_screenshot) {
                 vtable_ptr(settings) = vtable_target(FeatureSettings_vtable);
             }
 
-            // Send the "Escape" KeyEvent
-            press = new QKeyEvent(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
-            release = new QKeyEvent(QEvent::KeyRelease, Qt::Key_Escape, Qt::NoModifier);
-            AppNotify(app, nullptr, press);
-            AppNotify(app, nullptr, release);
+            // Firmware 5 changed the power key from Escape to F12.
+#if NM_QT_MAJOR >= 6
+            const auto key = Qt::Key_F12;
+#else
+            const auto key = Qt::Key_Escape;
+#endif
+            QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier);
+            QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier);
+            // Firmware 5 routes key events through TactileButtonFilter, which dereferences the receiver.
+            AppNotify(app, receiver, &press);
+            AppNotify(app, receiver, &release);
 
             // Restore "Screenshots" setting if it was previously disabled
             if (!org_screenshot_enabled) {
@@ -1082,10 +1156,9 @@ NM_ACTION_(nickel_screenshot) {
                 vtable_ptr(settings) = vtable_target(FeatureSettings_vtable);
             }
 
-            // Deconstruct Settings
-            Settings_SettingsD(settings);
 
             return nm_action_result_silent();
+        }
         default:
             NM_ERR_RET(nullptr, "unknown nickel_screenshot action '%s'", arg);
             break;

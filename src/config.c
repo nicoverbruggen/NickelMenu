@@ -515,7 +515,7 @@ static bool nm_config_parse__lineend_action(int field, char **line, bool p_on_su
 
     char *s_act = strtrim(strsep(line, ":"));
     if (!s_act) NM_ERR_RET(true, "field %d: expected action, got end of line", field);
-    #define X(name) \
+    #define X(name, fw4, fw5) \
     else if (!strcmp(s_act, #name)) act_out->act = NM_ACTION(name);
     NM_ACTIONS
     #undef X

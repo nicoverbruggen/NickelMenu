@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"maps"
@@ -21,8 +22,17 @@ import (
 
 var githubActions, _ = strconv.ParseBool(os.Getenv("GITHUB_ACTIONS")) // for https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands
 
+var firmwareVersion = flag.String("version", "", "check one firmware version instead of the historical 4.x list")
+var libraryDirectory = flag.String("lib-dir", "", "read extracted firmware libraries here instead of downloading test fixtures")
+var sourceDirectory = flag.String("src", ".", "directory containing NickelMenu sources")
+
 func main() {
-	sc, err := FindSymChecks(".")
+	flag.Parse()
+	if *libraryDirectory != "" && *firmwareVersion == "" {
+		fmt.Fprintln(os.Stderr, "-lib-dir requires -version")
+		os.Exit(1)
+	}
+	sc, err := FindSymChecks(*sourceDirectory)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[FTL] find symbol checks: %v\n", err)
 		os.Exit(1)
@@ -46,6 +56,10 @@ func main() {
 		"4.43.23418", "4.38.23552", "4.44.23552", "4.38.23555",
 	}
 
+	if *firmwareVersion != "" {
+		versions = []string{*firmwareVersion}
+	}
+
 	checks := map[string]map[string][]SymCheck{}
 	for _, c := range sc {
 		var sm, em int
@@ -56,7 +70,7 @@ func main() {
 			if c.EndVersion == "*" || strings.HasPrefix(version+".", c.EndVersion+".") {
 				em++
 			}
-			if versioncmp(c.StartVersion, version) <= 0 && versioncmp(version, c.EndVersion) <= 0 {
+			if versionInRange(version, c.StartVersion, c.EndVersion) {
 				if _, ok := checks[version]; !ok {
 					checks[version] = map[string][]SymCheck{}
 				}
@@ -71,6 +85,10 @@ func main() {
 		}
 	}
 
+	if len(checks) == 0 {
+		fmt.Fprintln(os.Stderr, "no symbol checks match the requested firmware")
+		os.Exit(1)
+	}
 	checkVersions := slices.SortedFunc(maps.Keys(checks), versioncmp)
 	fmt.Printf("[INF] sorted versions: %s\n", checkVersions)
 
@@ -134,6 +152,11 @@ func main() {
 			fmt.Printf("::endgroup::\n")
 		}
 	}
+	if *libraryDirectory != "" && !strings.HasPrefix(*firmwareVersion, "4.") {
+		if err := checkABI(*sourceDirectory, *libraryDirectory); err != nil {
+			errs = append(errs, err)
+		}
+	}
 	if len(errs) == 0 {
 		os.Exit(0)
 	}
@@ -156,6 +179,13 @@ func main() {
 }
 
 func GetPatcher(version, lib string) (*patchlib.Patcher, error) {
+	if *libraryDirectory != "" {
+		buf, err := os.ReadFile(filepath.Join(*libraryDirectory, lib))
+		if err != nil {
+			return nil, err
+		}
+		return patchlib.NewPatcher(buf), nil
+	}
 	resp, err := http.Get("https://github.com/pgaskin/kobopatch-testdata/raw/v1/" + version + ".tar.xz")
 	if err != nil {
 		return nil, fmt.Errorf("get kobopatch testdata for %#v: %w", version, err)
@@ -205,6 +235,9 @@ type SymCheck struct {
 func FindSymChecks(dir string) ([]SymCheck, error) {
 	var checks []SymCheck
 	if err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		var m bool
 		for _, ext := range []string{".c", ".cc", ".cpp", ".h"} {
 			if filepath.Ext(path) == ext {
@@ -226,19 +259,24 @@ func FindSymChecks(dir string) ([]SymCheck, error) {
 		var line int
 		for sc.Scan() {
 			line++
-			col := bytes.Index(sc.Bytes(), []byte("//libnickel"))
+			marker, library := "//libnickel", "libnickel.so.1.0.0"
+			col := bytes.Index(sc.Bytes(), []byte(marker))
+			if col == -1 {
+				marker, library = "//libqt6gui", "libQt6Gui.so.6"
+				col = bytes.Index(sc.Bytes(), []byte(marker))
+			}
 			if col == -1 {
 				continue
 			}
 
-			args := strings.Fields(string(bytes.TrimSpace(sc.Bytes()[col+len("//libnickel"):])))
+			args := strings.Fields(string(bytes.TrimSpace(sc.Bytes()[col+len(marker):])))
 			if len(args) < 3 || args[0] == "*" {
 				return fmt.Errorf("parse %#v: line %d, col %d: expected comment to be in the format '//libnickel <start_version> <end_version|*> <sym>...'", path, line, col+1)
 			}
 
 			checks = append(checks, SymCheck{
 				File:         fmt.Sprintf("%s:%d:%d", path, line, col+1),
-				Library:      "libnickel.so.1.0.0",
+				Library:      library,
 				StartVersion: args[0],
 				EndVersion:   args[1],
 				Symbols:      args[2:],
@@ -253,6 +291,12 @@ func FindSymChecks(dir string) ([]SymCheck, error) {
 		return nil, err
 	}
 	return checks, nil
+}
+
+// An abbreviated end such as "4" includes that whole firmware line.
+func versionInRange(version, start, end string) bool {
+	return versioncmp(start, version) <= 0 &&
+		(end == "*" || strings.HasPrefix(version+".", end+".") || versioncmp(version, end) <= 0)
 }
 
 func versioncmp(a, b string) int {

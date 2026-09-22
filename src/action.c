@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "action.h"
+#include "util.h"
 
 nm_action_result_t *nm_action_result_silent() {
     nm_action_result_t *res = calloc(1, sizeof(nm_action_result_t));
@@ -34,3 +35,15 @@ void nm_action_result_free(nm_action_result_t *res) {
         free(res->msg);
     free(res);
 }
+
+// Keep unsupported actions in the config parser so chain_failure can recover.
+#define NM_ACTION_STUB_0(name) NM_ACTION_(name) { \
+    (void)arg; \
+    NM_ERR_RET(NULL, "action '%s' is not supported on Qt 6 firmware", #name); \
+}
+#define NM_ACTION_STUB_1(name)
+#define NM_ACTION_STUB_(name, supported) NM_ACTION_STUB_##supported(name)
+#define NM_ACTION_STUB(name, supported) NM_ACTION_STUB_(name, supported)
+#define X(name, qt5, qt6) NM_ACTION_STUB(name, NM_ACTION_SUPPORTED(qt5, qt6))
+NM_ACTIONS
+#undef X

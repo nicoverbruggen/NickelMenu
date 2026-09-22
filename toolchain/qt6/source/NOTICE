@@ -1,0 +1,415 @@
+Notices for the Kobo Qt 6.5.2 patch bundle
+
+Scope and source
+
+The patches contain third-party code. The repository's Unlicense does not
+replace its terms. prepare.py remains under the root Unlicense.
+
+source.json records the official Qt archive and the pinned Kobo source archive,
+including their checksums. The patches reproduce changes in Kobo's archive;
+this does not mean Kobo authored every change. They preserve upstream notices
+in the reconstructed source. This file also records notices outside patch
+context, so they accompany the patches themselves.
+
+License texts in LICENSES are copied verbatim from the official Qt 6.5.2 archive,
+except LGPL-2.1.txt and Qt-LGPL-exception-1.1.txt, which come from Qt v5.2.1:
+https://code.qt.io/cgit/qt/qtbase.git/plain/LICENSE.LGPL?h=v5.2.1
+https://code.qt.io/cgit/qt/qtbase.git/plain/LGPL_EXCEPTION.txt?h=v5.2.1
+LicenseRef-Qt-Commercial.txt records the commercial alternative; including it
+does not grant a commercial license. Qt-GPL-exception-1.0.txt concerns Qt tools
+in the full source tree, not the older LGPL exception in the Kobo headers.
+
+The inventory below covers all 88 paths touched by the two patches. It records
+source declarations rather than assigning new licenses to unmarked files.
+It is not a license inventory for every dependency in a built image or SDK.
+
+Qt source files with SPDX declarations
+
+The following are exact copyright and license lines from each file's header.
+The BSD-3-Clause text uses a copyright placeholder; the actual copyright
+notices appear here. Other license choices are alternatives as stated by Qt.
+
+  src/corelib/global/qglobal.cpp
+
+// Copyright (C) 2021 The Qt Company Ltd.
+// Copyright (C) 2017 Intel Corporation.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+  src/corelib/global/qlibraryinfo.cpp
+
+// Copyright (C) 2021 The Qt Company Ltd.
+// Copyright (C) 2021 Intel Corporation.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+  src/corelib/global/qnamespace.h
+
+// Copyright (C) 2020 The Qt Company Ltd.
+// Copyright (C) 2020 Klaralvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Giuseppe D'Angelo <giuseppe.dangelo@kdab.com>
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+  src/corelib/kernel/qcoreevent.h
+  src/gui/accessible/linux/dbusconnection_p.h
+  src/gui/accessible/qaccessible.cpp
+  src/gui/accessible/qaccessible.h
+  src/gui/kernel/qevent.cpp
+  src/gui/kernel/qevent.h
+  src/gui/kernel/qevent_p.h
+  src/gui/kernel/qwindowsysteminterface.cpp
+  src/gui/kernel/qwindowsysteminterface.h
+  src/widgets/kernel/qwidget_p.h
+  src/widgets/kernel/qwidgetwindow.cpp
+
+// Copyright (C) 2020 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+  src/gui/CMakeLists.txt
+  src/plugins/sqldrivers/sqlite/CMakeLists.txt
+  src/testlib/CMakeLists.txt
+
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
+  src/gui/accessible/linux/atspiadaptor.cpp
+  src/gui/accessible/linux/atspiadaptor_p.h
+  src/gui/accessible/linux/qspiaccessiblebridge.cpp
+  src/gui/accessible/linux/qspiaccessiblebridge_p.h
+  src/gui/accessible/linux/qspiapplicationadaptor.cpp
+  src/gui/kernel/qguiapplication.h
+  src/gui/kernel/qguiapplication_p.h
+  src/gui/kernel/qwindow.h
+  src/gui/kernel/qwindowsysteminterface_p.h
+  src/gui/painting/qbackingstore.cpp
+  src/gui/painting/qbackingstore.h
+  src/gui/painting/qplatformbackingstore.cpp
+  src/gui/painting/qplatformbackingstore.h
+  src/gui/text/qabstracttextdocumentlayout.h
+  src/gui/text/qfont.h
+  src/gui/text/qfont_p.h
+  src/gui/text/qtextdocument_p.cpp
+  src/gui/text/qtextdocument_p.h
+  src/gui/text/qtextdocumentlayout.cpp
+  src/gui/text/qtextdocumentlayout_p.h
+  src/gui/text/qtextlayout.cpp
+  src/gui/text/qtextlayout.h
+  src/platformsupport/fbconvenience/qfbbackingstore.cpp
+  src/platformsupport/fbconvenience/qfbbackingstore_p.h
+  src/platformsupport/fbconvenience/qfbscreen.cpp
+  src/platformsupport/fbconvenience/qfbscreen_p.h
+  src/platformsupport/fbconvenience/qfbwindow.cpp
+  src/platformsupport/fbconvenience/qfbwindow_p.h
+  src/platformsupport/input/evdevkeyboard/qevdevkeyboardhandler.cpp
+  src/platformsupport/input/evdevkeyboard/qevdevkeyboardmanager.cpp
+  src/platformsupport/input/evdevkeyboard/qevdevkeyboardmanager_p.h
+  src/plugins/platforms/linuxfb/qlinuxfbintegration.cpp
+  src/plugins/platforms/linuxfb/qlinuxfbintegration.h
+  src/plugins/platforms/xcb/qxcbbackingstore.cpp
+  src/plugins/platforms/xcb/qxcbbackingstore.h
+  src/widgets/graphicsview/qgraphicsscene.cpp
+  src/widgets/kernel/qapplication.cpp
+  src/widgets/kernel/qwidget.h
+  src/widgets/kernel/qwidgetrepaintmanager.cpp
+  src/widgets/kernel/qwidgetrepaintmanager_p.h
+  src/widgets/kernel/qwidgetwindow_p.h
+  src/widgets/styles/qstylesheetstyle.cpp
+  src/widgets/widgets/qplaintextedit.h
+
+// Copyright (C) 2016 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+  src/gui/accessible/linux/dbusconnection.cpp
+  src/gui/accessible/qaccessible_base.h
+  src/gui/image/qimage.cpp
+
+// Copyright (C) 2022 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+  src/gui/image/qimage.h
+  src/gui/text/qfontengine.cpp
+  src/gui/text/qfontengine_p.h
+  src/platformsupport/input/evdevkeyboard/qevdevkeyboardhandler_p.h
+
+// Copyright (C) 2021 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+  src/gui/kernel/qguiapplication.cpp
+
+// Copyright (C) 2021 The Qt Company Ltd.
+// Copyright (C) 2016 Intel Corporation.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+  src/gui/text/qfont.cpp
+  src/gui/text/qtextdocument.cpp
+  src/gui/text/qtextdocument.h
+
+// Copyright (C) 2019 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+  src/platformsupport/input/evdevtouch/qevdevtouchhandler.cpp
+
+// Copyright (C) 2019 The Qt Company Ltd.
+// Copyright (C) 2016 Jolla Ltd, author: <gunnar.sletta@jollamobile.com>
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+  src/platformsupport/input/evdevtouch/qevdevtouchhandler_p.h
+
+// Copyright (C) 2016 The Qt Company Ltd.
+// Copyright (C) 2016 Jolla Ltd, author: <gunnar.sletta@jollamobile.com>
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+  src/widgets/kernel/qwidget.cpp
+
+// Copyright (C) 2017 The Qt Company Ltd.
+// Copyright (C) 2016 Intel Corporation.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+Legacy Qt platform headers
+
+  mkspecs/linux-armv7-fusion-g++/qplatformdefs.h
+  mkspecs/linux-g++-kobo/qplatformdefs.h
+
+/****************************************************************************
+**
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the qmake spec of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:LGPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+**
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
+** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 3.0 as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU General Public License version 3.0 requirements will be
+** met: http://www.gnu.org/copyleft/gpl.html.
+**
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+Files without an individual license declaration
+
+  .tag
+  cmake/qt.toolchain.cmake.in
+  mkspecs/common/linux-kobo.conf
+  mkspecs/features/qt.prf
+  mkspecs/features/qt_functions.prf
+  mkspecs/linux-armv7-fusion-g++/qmake.conf
+  mkspecs/linux-g++-kobo/qmake.conf
+  mkspecs/linux-oe-g++/qmake.conf
+  mkspecs/linux-oe-g++/qplatformdefs.h
+  mkspecs/oe-device-extra.pri
+
+These files are supplied as part of Kobo's published Qt 6.5.2 OSS source
+package. They have no individual license notice in that package. .tag is
+revision metadata and oe-device-extra.pri is empty. The others are Qt/Kobo
+build configuration files, including changes carried from OpenEmbedded.
+They are retained in that source-package context, with its license texts
+and the provenance below. This inventory does not assign a new license to
+them or treat the absence of a per-file header as a separate permission
+requirement. The license of this repository does not replace upstream terms.
+
+OpenEmbedded patch provenance
+
+The Kobo archive includes changes from these meta-qt6 patches, as carried at
+commit 74d7d77e23b144cbb801cf6af7ec78b9673158f4:
+https://code.qt.io/yocto/meta-qt6.git
+
+0001-Add-linux-oe-g-platform.patch
+From a08e167d51c33f91009ba27adaa083c783c1ac54 Mon Sep 17 00:00:00 2001
+From: Martin Jansa <Martin.Jansa@gmail.com>
+Date: Mon, 15 Apr 2013 04:29:32 +0200
+Subject: [PATCH] Add linux-oe-g++ platform
+
+* This qmake.conf unlike other platforms reads most variables from
+  shell environment, because it's easier for qt recipes to export
+  *FLAGS or CC specific for given recipe
+
+Upstream-Status: Inappropriate [embedded specific]
+                 too OE specific, probably cannot be upstreamed
+
+Change-Id: I0591ed5da0d61d7cf1509d420e6b293582f1863c
+Signed-off-by: Martin Jansa <Martin.Jansa@gmail.com>
+
+
+0002-qlibraryinfo-allow-to-set-qt.conf-from-the-outside-u.patch
+From 1662965c5b1fd00fb61c3fc29833324999c0bfc2 Mon Sep 17 00:00:00 2001
+From: Holger Freyther <zecke@selfish.org>
+Date: Wed, 26 Sep 2012 17:22:30 +0200
+Subject: [PATCH] qlibraryinfo: allow to set qt.conf from the outside using the
+ environment
+
+Allow to set a qt.conf from the outside using the environment. This allows
+to inject new prefixes and other paths into qmake. This is needed when using
+the same qmake binary to build qt/x11 and qt/embedded
+
+Upstream-Status: Inappropriate [embedded specific]
+  again very OE specific to read everything from environment (reusing the same
+  qmake from sstate and replacing all configured paths in it with qt.conf from
+  environment).
+
+Change-Id: I41595c6ce7514e8f197d0a19a1308c9460037d1b
+Signed-off-by: Martin Jansa <Martin.Jansa@gmail.com>
+
+
+0004-Fix-qt.toolchain.cmake-for-SDK-use.patch
+From a4d3698a56665cc73a18fa860c862e1b04533792 Mon Sep 17 00:00:00 2001
+From: Samuli Piippo <samuli.piippo@qt.io>
+Date: Thu, 16 Dec 2021 13:10:48 +0200
+Subject: [PATCH] Fix qt.toolchain.cmake for SDK use
+
+The calculated paths for QT_TOOLCHAIN_RELOCATABLE paths point to
+host sysroot which must not be used when cross-compiling other projects.
+
+Change-Id: I52aa2a10d2a13fd27d6bf8b4af6dc1833c7a286a
+Upstream-Status: Inappropriate [embedded specific]
+
+0005-testlib-don-t-track-the-build-or-source-directories.patch
+From 07f7e1ae76b24ba64cd87726c438638a8fa3eba0 Mon Sep 17 00:00:00 2001
+From: Samuli Piippo <samuli.piippo@qt.io>
+Date: Mon, 22 Aug 2022 15:01:28 +0300
+Subject: [PATCH] testlib: don't track the build or source directories
+
+Build tests without location of the build and sources directories.
+
+Upstream-Status: Inappropriate [embedded specific]
+Change-Id: I8d5add473623a3d9f481097649819c9fb906e4b2
+
+
+SQLite and SQLCipher
+
+  src/3rdparty/sqlite/sqlite3.c
+  src/3rdparty/sqlite/sqlite3.h
+
+SQLite's original code has a public-domain dedication:
+https://www.sqlite.org/copyright.html
+This does not cover SQLCipher additions in Kobo's amalgamation. Those carry
+the Zetetic BSD notices reproduced below. The public-domain label in Qt's
+unchanged sqlite/qt_attribution.json is not a complete description of the
+patched amalgamation. SQLCipher interfaces also appear in sqlite3.h.
+
+** The author disclaims copyright to this source code.  In place of
+** a legal notice, here is a blessing:
+**
+**    May you do good and not evil.
+**    May you find forgiveness for yourself and forgive others.
+**    May you share freely, never taking more than you give.
+**
+
+/*
+** SQLCipher
+** http://sqlcipher.net
+**
+** Copyright (c) 2008 - 2013, ZETETIC LLC
+** All rights reserved.
+**
+** Redistribution and use in source and binary forms, with or without
+** modification, are permitted provided that the following conditions are met:
+**     * Redistributions of source code must retain the above copyright
+**       notice, this list of conditions and the following disclaimer.
+**     * Redistributions in binary form must reproduce the above copyright
+**       notice, this list of conditions and the following disclaimer in the
+**       documentation and/or other materials provided with the distribution.
+**     * Neither the name of the ZETETIC LLC nor the
+**       names of its contributors may be used to endorse or promote products
+**       derived from this software without specific prior written permission.
+**
+** THIS SOFTWARE IS PROVIDED BY ZETETIC LLC ''AS IS'' AND ANY
+** EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+** WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+** DISCLAIMED. IN NO EVENT SHALL ZETETIC LLC BE LIABLE FOR ANY
+** DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+** (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+** LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+** ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+** (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+**
+*/
+
+/*
+** SQLCipher
+** sqlcipher.h developed by Stephen Lombardo (Zetetic LLC)
+** sjlombardo at zetetic dot net
+** http://zetetic.net
+**
+** Copyright (c) 2008, ZETETIC LLC
+** All rights reserved.
+**
+** Redistribution and use in source and binary forms, with or without
+** modification, are permitted provided that the following conditions are met:
+**     * Redistributions of source code must retain the above copyright
+**       notice, this list of conditions and the following disclaimer.
+**     * Redistributions in binary form must reproduce the above copyright
+**       notice, this list of conditions and the following disclaimer in the
+**       documentation and/or other materials provided with the distribution.
+**     * Neither the name of the ZETETIC LLC nor the
+**       names of its contributors may be used to endorse or promote products
+**       derived from this software without specific prior written permission.
+**
+** THIS SOFTWARE IS PROVIDED BY ZETETIC LLC ''AS IS'' AND ANY
+** EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+** WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+** DISCLAIMED. IN NO EVENT SHALL ZETETIC LLC BE LIABLE FOR ANY
+** DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+** (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+** LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+** ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+** (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+**
+*/
+
+/*
+** SQLCipher
+** crypto.h developed by Stephen Lombardo (Zetetic LLC)
+** sjlombardo at zetetic dot net
+** http://zetetic.net
+**
+** Copyright (c) 2008, ZETETIC LLC
+** All rights reserved.
+**
+** Redistribution and use in source and binary forms, with or without
+** modification, are permitted provided that the following conditions are met:
+**     * Redistributions of source code must retain the above copyright
+**       notice, this list of conditions and the following disclaimer.
+**     * Redistributions in binary form must reproduce the above copyright
+**       notice, this list of conditions and the following disclaimer in the
+**       documentation and/or other materials provided with the distribution.
+**     * Neither the name of the ZETETIC LLC nor the
+**       names of its contributors may be used to endorse or promote products
+**       derived from this software without specific prior written permission.
+**
+** THIS SOFTWARE IS PROVIDED BY ZETETIC LLC ''AS IS'' AND ANY
+** EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+** WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+** DISCLAIMED. IN NO EVENT SHALL ZETETIC LLC BE LIABLE FOR ANY
+** DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+** (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+** LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+** ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+** (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+**
+*/

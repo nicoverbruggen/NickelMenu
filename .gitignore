@@ -19,3 +19,7 @@ compile_commands.json
 /src/action_cc.o
 /src/nickelmenu.o
 test.syms
+
+*.d
+/Kobo.tgz
+/src/embedded_resources.h

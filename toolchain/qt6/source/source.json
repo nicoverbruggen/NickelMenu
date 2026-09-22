@@ -1,0 +1,13 @@
+{
+  "version": "6.5.2",
+  "url": "https://download.qt.io/archive/qt/6.5/6.5.2/submodules/qtbase-everywhere-src-6.5.2.tar.xz",
+  "sha256": "3db4c729b4d80a9d8fda8dd77128406353baff4755ca619177eda4cddae71269",
+  "directory": "qtbase-everywhere-src-6.5.2",
+  "patches": ["0001-kobo-qtbase.patch", "0002-kobo-sqlite.patch"],
+  "kobo_source": {
+    "repository": "https://github.com/kobolabs/Kobo-Reader",
+    "commit": "7a762964e7fa71ad8e8df50dd1b6eee721a43217",
+    "files": "packages-v5/qt-base-6.5.2.tar.gz.part000 through part002",
+    "sha256": "2ace77e6697d2dc3d29dbeb57b20850d54af692b03e2758ca95d652d9ec7df3a"
+  }
+}
