@@ -1,6 +1,5 @@
-// Private Settings and navigation layouts validated in 5.18.270971 and 6.0.274403.
-// Match function bytes, never the running firmware version. Recheck changed
-// implementations before adding a digest. Ordinary public Qt calls need no digest.
+// Reference fingerprints for development diagnostics, not runtime gates.
+// Different bytes can reflect a relink or a changed implementation.
 static const NmAbiFunction nm_abi_functions[] = {
     {"_ZN11DevSettingsD0Ev", 40, "1d24c9a40133bf5422b7bf989d424c2509c49e622738ee5ffb11ec647dabbefc"},
     {"_ZN11DevSettingsD0Ev", 40, "69f1f4c46142eac763719a1efef178402df5a2b23b0f4e43c73be4e64d335678"},

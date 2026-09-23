@@ -122,14 +122,16 @@ func checkABI(source, directory string) error {
 				break
 			}
 		}
-		if !matchesABI(code, alternatives) {
-			fmt.Printf("[ERR] private ABI missing or changed: %s\n", name)
+		if len(code) == 0 {
+			fmt.Printf("[ERR] private function missing, inaccessible or incompatible: %s\n", name)
 			failed = true
+		} else if !matchesABI(code, alternatives) {
+			fmt.Printf("[INF] private function differs from reference; runtime testing needed: %s\n", name)
 		}
 	}
 	if failed {
 		return fmt.Errorf("private ABI checks failed")
 	}
-	fmt.Printf("[INF] %d private ABI functions match the production guards\n", len(entries))
+	fmt.Printf("[INF] %d private functions checked\n", len(entries))
 	return nil
 }

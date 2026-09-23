@@ -35,3 +35,5 @@ make NH_QT_MAJOR=6 NM_UNINSTALL_CONFIGDIR=1 -j2 all kobo
 Install the resulting `Kobo.tgz` through `.kobo` on Qt6 firmware. It contains only the plugin; documentation is created on user storage at first startup. Qt5 continues to use `KoboRoot.tgz`. To build against another NickelHook checkout, set `NICKELHOOK=/path/to/NickelHook`.
 
 The Qt6 port adapts selection menus and actions to the changed firmware APIs and checks private dependencies before using them. Extras, Bluetooth, Pocket and awards are unavailable in this port. Physical hardware actions still need device testing.
+
+Qt6 actions resolve available firmware symbols without requiring exact machine-code hashes. The runtime still checks executable memory, native Qt allocation metadata and the Settings vtable slots it replaces. Navigation errors distinguish missing symbols from rejected dependencies. The symbol checker reports changed function fingerprints for review without rejecting a Qt6 rebuild. These checks do not prove private object-layout compatibility; new firmware still needs runtime testing.

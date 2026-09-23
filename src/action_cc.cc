@@ -227,13 +227,16 @@ NM_ACTION_(nickel_open) {
     void (*fn_d)(void *_this);
     void (*fn_f)(void *_this);
 
-    reinterpret_cast<void*&>(fn_c) = nm_resolve(sym_c);
-    reinterpret_cast<void*&>(fn_d) = nm_resolve(sym_d);
-    reinterpret_cast<void*&>(fn_f) = nm_resolve(sym_f);
+    const char *error_c = nullptr;
+    reinterpret_cast<void*&>(fn_c) = nm_resolve(sym_c, &error_c);
+    const char *error_d = nullptr;
+    reinterpret_cast<void*&>(fn_d) = nm_resolve(sym_d, &error_d);
+    const char *error_f = nullptr;
+    reinterpret_cast<void*&>(fn_f) = nm_resolve(sym_f, &error_f);
 
-    NM_CHECK(nullptr, fn_c, "could not find constructor %s (is your firmware too old?)", sym_c);
-    NM_CHECK(nullptr, fn_d, "could not find destructor %s (is your firmware too old?)", sym_d);
-    NM_CHECK(nullptr, fn_f, "could not find function %s (is your firmware too old?)", sym_f);
+    NM_CHECK(nullptr, fn_c, "could not resolve constructor %s: %s", sym_c, error_c);
+    NM_CHECK(nullptr, fn_d, "could not resolve destructor %s: %s", sym_d, error_d);
+    NM_CHECK(nullptr, fn_f, "could not resolve function %s: %s", sym_f, error_f);
     NM_LOG("c: %s = %p; d: %s = %p; f: %s = %p", sym_c, fn_c, sym_d, fn_d, sym_f, fn_f);
 
     // HACK: I don't exactly know why this is needed, but without it, most of
