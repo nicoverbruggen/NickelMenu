@@ -4,11 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'new/existing tag name'
+        description: 'Existing tag to build'
         required: true
-      target_commitish:
-        description: 'target if new tag'
-        default: master
 
 permissions:
   contents: write
@@ -19,22 +16,29 @@ jobs:
   build:
     name: NickelMenu
     runs-on: ubuntu-latest
-    container: ghcr.io/pgaskin/nickeltc:1.0
     steps:
     - name: Checkout
       uses: actions/checkout@v6
       with:
+        ref: refs/tags/${{ inputs.tag_name }}
         submodules: true
-    - name: Build
-      uses: docker://ghcr.io/pgaskin/nickeltc:1.0
+        fetch-depth: 0
+    - name: Setup Go
+      uses: actions/setup-go@v6
       with:
-        entrypoint: make
-        args: all koboroot
+        go-version-file: test/syms/go.mod
+        cache-dependency-path: test/syms/go.sum
+    - name: Test
+      run: cd test/syms && go test ./...
+    - name: Build
+      env:
+        NM_VERSION: ${{ inputs.tag_name }}
+      run: sh tools/build.sh
     - name: Attest
       uses: actions/attest-build-provenance@v3
       with:
         subject-path: |
-          KoboRoot.tgz
+          build/qt*/*.tgz
     - name: Create draft release
       uses: actions/github-script@v8
       id: draft_release
@@ -44,9 +48,9 @@ jobs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             tag_name: context.payload.inputs.tag_name,
-            target_commitish: context.payload.inputs.target_commitish,
             name: `NickelMenu ${context.payload.inputs.tag_name}`,
             draft: true,
+            prerelease: /^qt6-/i.test(context.payload.inputs.tag_name),
           })
           core.setOutput('id', id)
     - name: Upload release asset
@@ -55,10 +59,12 @@ jobs:
         retries: 3 # note: this applies to individual github.rest calls, not the entire script
         script: |
           const {readFile} = require('fs').promises
-          await github.rest.repos.uploadReleaseAsset({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            release_id: '${{steps.draft_release.outputs.id}}',
-            name: 'KoboRoot.tgz',
-            data: await readFile(`KoboRoot.tgz`),
-          })
+          for (const [qt, name] of [[5, 'KoboRoot.tgz'], [6, 'Kobo.tgz']]) {
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: '${{steps.draft_release.outputs.id}}',
+              name,
+              data: await readFile(`build/qt${qt}/${name}`),
+            })
+          }

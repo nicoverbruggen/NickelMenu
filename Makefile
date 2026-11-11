@@ -5,12 +5,11 @@ include $(patsubst %/,%,$(NICKELHOOK))/NickelHook.mk
 override PKGCONF  += Qt$(NH_QT_MAJOR)Widgets
 override LIBRARY  := src/libnm.so
 override SOURCES  += src/action.c src/action_c.c src/action_cc.cc src/config.c src/generator.c src/generator_c.c src/kfmon.c src/nickelmenu.cc src/util.c
-override CFLAGS   += -Wall -Wextra -Werror -fvisibility=hidden
+override CFLAGS   += -Wall -Wextra -Werror -Wno-error=unused-result -fvisibility=hidden
 override CXXFLAGS += -Wall -Wextra -Werror -Wno-missing-field-initializers -isystemlib -fvisibility=hidden -fvisibility-inlines-hidden
 override CPPFLAGS += -DNM_QT_MAJOR=$(NH_QT_MAJOR)
 ifeq ($(NH_QT_MAJOR),6)
 override SOURCES += src/install.c $(patsubst %/,%,$(NICKELHOOK))/resources.c
-override CFLAGS += -Wno-error=unused-result
 else
 override KOBOROOT += res/doc:$(NM_CONFIG_DIR)/doc
 endif
