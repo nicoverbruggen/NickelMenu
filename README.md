@@ -42,7 +42,7 @@ make NH_QT_MAJOR=6 NM_UNINSTALL_CONFIGDIR=1 -j2 all
 make NH_QT_MAJOR=6 kobo
 ```
 
-Install the resulting `Kobo.tgz` through `.kobo` on Qt6 firmware. It contains only the plugin; documentation is created on user storage at first startup. Qt5 continues to use `KoboRoot.tgz`. To build against another NickelHook checkout, set `NICKELHOOK=/path/to/NickelHook`.
+Install the resulting `Kobo.tgz` through `.kobo` on Qt6 firmware. It contains only the plugin; NickelMenu updates `.adds/nm/doc` on the first startup of each release. Keep custom menu entries in separate files. Qt5 continues to use `KoboRoot.tgz`. To build against another NickelHook checkout, set `NICKELHOOK=/path/to/NickelHook`.
 
 The Qt6 port adapts selection menus and actions to the changed firmware APIs and checks private dependencies before using them. Bluetooth actions use Nickel’s Bluetooth settings on devices with a Bluetooth adapter. Extras, Pocket and awards are unavailable in this port.
 

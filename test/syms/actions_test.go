@@ -106,6 +106,8 @@ func TestActionConfig(t *testing.T) {
 				"-DNM_CONFIG_DIR=\"" + config + "\"", "-DNM_CONFIG_DIR_DISP=\"test\""}
 			if runtime.GOOS == "darwin" {
 				args = append(args, "-Dst_mtim=st_mtimespec")
+			} else if runtime.GOOS == "linux" {
+				args = append(args, "-fsanitize=leak")
 			}
 			args = append(args, "testdata/config.c")
 			for _, name := range []string{"action.c", "config.c", "util.c"} {
@@ -164,7 +166,15 @@ func TestActionConfig(t *testing.T) {
 			for _, name := range []string{".hidden", "backup~", "#backup#", "backup.swp", "desktop.ini"} {
 				actionWrite(t, filepath.Join(config, name), "invalid")
 			}
+			if err := os.Mkdir(filepath.Join(config, "scripts"), 0700); err != nil {
+				t.Fatal(err)
+			}
 			equal(parse("menu_item:main:Recovered:dbg_msg:ok\n", ""), "1\n1|Recovered|11\n")
+			// The failed stat comes after a real file and a skipped directory.
+			if err := os.Symlink("missing", filepath.Join(config, "zz-link")); err != nil {
+				t.Fatal(err)
+			}
+			parse("menu_item:main:Kept:dbg_msg:ok\n", "could not stat")
 		})
 	}
 }

@@ -1,0 +1,79 @@
+name: Qt6 firmware checks
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      check_abi:
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  qt6:
+    name: Symbols / ${{ matrix.device }} / ${{ matrix.version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - device: Kobo Clara Colour
+          version: 6.0.279225
+          url: https://ereaderfiles.kobo.com/firmwares/kobo12/Oct2026/qt6-update-6.0.279225.zip
+          sha256: 48b777179a79f68a5d1216e2a8ae20936f1bfacb6c5595351c9a6104b058f2ac
+        - device: Tolino Vision Color
+          version: 5.18.264769
+          url: https://ereaderfiles.kobo.com/firmwares/kobo11/Jul2026/kobo-update-5.18.264769/update.tar
+          sha256: 3f0dc98e1f0faa078200fced7cebedd9acfefdb064c04533de5c248500bba6eb
+        # The Vision Color, Shine Color and Shine 5 downloads have the same SHA-256.
+        - device: Tolino Vision Color and Shine
+          version: 5.18.279364
+          url: https://ereaderfiles.kobo.com/firmwares/kobo11/Oct2026/qt6-update-5.18.279364/update.tar
+          sha256: e5b0c7264b18c0fad2f7e9e0b6a574621ccb835edfa5fcb5c6e55f44f31be693
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        ref: ${{ inputs.ref }}
+    - uses: actions/setup-go@v6
+      with:
+        go-version-file: test/syms/go.mod
+        cache-dependency-path: test/syms/go.sum
+    - name: Cache extracted firmware libraries
+      uses: actions/cache@v4
+      id: libraries
+      with:
+        path: ${{ runner.temp }}/qt6-libs
+        key: qt6-libs-v1-${{ matrix.sha256 }}
+    - name: Extract firmware libraries
+      if: steps.libraries.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ runner.temp }}
+      env:
+        URL: ${{ matrix.url }}
+        SHA256: ${{ matrix.sha256 }}
+      run: |
+        curl --fail --location --retry 3 --output firmware "$URL"
+        echo "$SHA256  firmware" | sha256sum --check
+        if [[ "$URL" == *.zip ]]; then
+          unzip -p firmware update.tar > update.tar
+        else
+          mv firmware update.tar
+        fi
+        tar -xOf update.tar rootfs.img | zstd -dq -o rootfs.img
+        mkdir qt6-libs
+        debugfs -R 'dump /usr/local/Kobo/libnickel.so.1.0.0 qt6-libs/libnickel.so.1.0.0' rootfs.img
+        debugfs -R 'dump /usr/lib/libQt6Gui.so.6.5.2 qt6-libs/libQt6Gui.so.6' rootfs.img
+    - name: Check firmware compatibility
+      working-directory: test/syms
+      env:
+        VERSION: ${{ matrix.version }}
+        CHECK_ABI: ${{ inputs.check_abi }}
+      shell: bash
+      run: |
+        args=(-src ../../src -version "$VERSION" -lib-dir "$RUNNER_TEMP/qt6-libs")
+        if [[ "$CHECK_ABI" != true ]]; then args+=(-symbols-only); fi
+        go run . "${args[@]}"

@@ -24,3 +24,9 @@ jobs:
       run: cd src && ../test.syms
     - name: Test action registry and configuration parser
       run: cd test/syms && go test ./...
+
+  qt6:
+    uses: ./.github/workflows/qt6-firmware.yaml
+    with:
+      ref: ${{ github.sha }}
+      check_abi: ${{ github.event_name == 'push' && github.ref_type == 'tag' && !github.event.deleted }}

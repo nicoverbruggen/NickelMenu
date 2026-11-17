@@ -23,8 +23,11 @@ nm_menu_item_t **nm_generator_do(nm_generator_t *gen, size_t *sz_out) {
 void nh_log(const char *fmt, ...) { (void)fmt; }
 
 int main(void) {
-    nm_config_file_t *files = nm_config_files();
-    assert(!nm_err());
+    nm_config_file_t *files = NULL;
+    int scan = nm_config_files_update(&files);
+    if (scan == -1) { fputs(nm_err(), stderr); return 2; }
+    assert(scan == 0);
+    assert(nm_config_files_update(&files) == 1);
     nm_config_t *cfg = nm_config_parse(files);
     nm_config_files_free(files);
     const char *err = nm_err();

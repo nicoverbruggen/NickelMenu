@@ -53,49 +53,47 @@ nm_config_file_t *nm_config_files() {
     int n = scandir(NM_CONFIG_DIR, &nl, nm_config_files_filter, alphasort);
     NM_CHECK(NULL, n != -1, "could not scan config dir: %m");
 
+    nm_err_set(NULL);
     for (int i = 0; i < n; i++) {
-        struct dirent *de = nl[i];
-
         char *fn;
-        if (asprintf(&fn, "%s/%s", NM_CONFIG_DIR, de->d_name) == -1)
-            fn = NULL;
-
-        struct stat statbuf;
-        if (!fn || stat(fn, &statbuf)) {
-            while (cfs) {
-                nm_config_file_t *tmp = cfs->next;
-                free(cfs);
-                cfs = tmp;
-            }
-            if (!fn)
-                NM_ERR_RET(NULL, "could not build full path for config file");
-            free(fn);
-            NM_ERR_RET(NULL, "could not stat %s/%s", NM_CONFIG_DIR, de->d_name);
+        if (asprintf(&fn, "%s/%s", NM_CONFIG_DIR, nl[i]->d_name) == -1) {
+            NM_ERR_SET("could not build full path for config file");
+            break;
         }
 
-        // skip it if it isn't a file
-        if (de->d_type != DT_REG && !S_ISREG(statbuf.st_mode)) {
+        struct stat statbuf;
+        if (stat(fn, &statbuf)) {
+            NM_ERR_SET("could not stat %s: %m", fn);
+            free(fn);
+            break;
+        }
+        if (!S_ISREG(statbuf.st_mode)) {
             NM_LOG("config: skipping %s because not a regular file", fn);
             free(fn);
             continue;
         }
 
-        if (cfc) {
-            cfc->next = calloc(1, sizeof(nm_config_file_t));
-            cfc = cfc->next;
-        } else {
-            cfs = calloc(1, sizeof(nm_config_file_t));
-            cfc = cfs;
+        nm_config_file_t *file = calloc(1, sizeof(*file));
+        if (!file) {
+            NM_ERR_SET("could not allocate config file entry");
+            free(fn);
+            break;
         }
-
-        cfc->path = fn;
-        cfc->mtime = statbuf.st_mtim;
-
-        free(de);
+        file->path = fn;
+        file->mtime = statbuf.st_mtim;
+        if (cfc)
+            cfc->next = file;
+        else
+            cfs = file;
+        cfc = file;
     }
-
+    for (int i = 0; i < n; i++)
+        free(nl[i]);
     free(nl);
-    nm_err_set(NULL);
+    if (nm_err_peek()) {
+        nm_config_files_free(cfs);
+        return NULL;
+    }
     return cfs;
 }
 
@@ -137,6 +135,7 @@ int nm_config_files_update(nm_config_file_t **files) {
 void nm_config_files_free(nm_config_file_t *files) {
     while (files) {
         nm_config_file_t *tmp = files->next;
+        free(files->path);
         free(files);
         files = tmp;
     }
@@ -241,7 +240,7 @@ nm_config_t *nm_config_parse(nm_config_file_t *files) {
         if (cfgfile)                    \
             fclose(cfgfile);            \
         free(line);                     \
-        nm_config_free(state.cfg_c);    \
+        nm_config_free(state.cfg_s);    \
         return NULL;                    \
     } while (0)
 
@@ -407,6 +406,7 @@ nm_config_t *nm_config_parse(nm_config_file_t *files) {
     NM_MENU_LOCATIONS
     #undef X
 
+    free(line);
     return state.cfg_s;
 }
 

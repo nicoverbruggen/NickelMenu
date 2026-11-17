@@ -13,9 +13,8 @@
 # Extras, Pocket and awards are unavailable in the Qt6 build.
 # Settings and navigation actions check private code layouts before use.
 # These checks use symbols and memory, not a firmware version allowlist.
-# On Qt6, the library creates this doc on user storage at first startup
-# without replacing existing files. Remove an explicit uninstall file before
-# reinstalling.
+# Each release updates this doc. Keep your menu items in separate files.
+# On Qt6, remove an explicit uninstall file before reinstalling.
 #
 # Place your configuration files in this folder. They can be named anything, and
 # should consist of multiple lines either starting with # for a comment, or in

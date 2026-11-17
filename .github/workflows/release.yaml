@@ -13,7 +13,15 @@ permissions:
   attestations: write
 
 jobs:
+  qt6:
+    uses: ./.github/workflows/qt6-firmware.yaml
+    permissions:
+      contents: read
+    with:
+      ref: refs/tags/${{ inputs.tag_name }}
+      check_abi: true
   build:
+    needs: qt6
     name: NickelMenu
     runs-on: ubuntu-latest
     steps:

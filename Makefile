@@ -9,7 +9,7 @@ override CFLAGS   += -Wall -Wextra -Werror -Wno-error=unused-result -fvisibility
 override CXXFLAGS += -Wall -Wextra -Werror -Wno-missing-field-initializers -isystemlib -fvisibility=hidden -fvisibility-inlines-hidden
 override CPPFLAGS += -DNM_QT_MAJOR=$(NH_QT_MAJOR)
 ifeq ($(NH_QT_MAJOR),6)
-override SOURCES += src/install.c $(patsubst %/,%,$(NICKELHOOK))/resources.c
+override SOURCES += src/install.cc $(patsubst %/,%,$(NICKELHOOK))/resources.c
 else
 override KOBOROOT += res/doc:$(NM_CONFIG_DIR)/doc
 endif

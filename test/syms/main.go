@@ -24,6 +24,7 @@ var githubActions, _ = strconv.ParseBool(os.Getenv("GITHUB_ACTIONS")) // for htt
 
 var firmwareVersion = flag.String("version", "", "check one firmware version instead of the historical 4.x list")
 var libraryDirectory = flag.String("lib-dir", "", "read extracted firmware libraries here instead of downloading test fixtures")
+var symbolsOnly = flag.Bool("symbols-only", false, "skip private Qt6 ABI checks when checking extracted libraries")
 var sourceDirectory = flag.String("src", ".", "directory containing NickelMenu sources")
 
 func main() {
@@ -152,7 +153,7 @@ func main() {
 			fmt.Printf("::endgroup::\n")
 		}
 	}
-	if *libraryDirectory != "" && !strings.HasPrefix(*firmwareVersion, "4.") {
+	if !*symbolsOnly && *libraryDirectory != "" && !strings.HasPrefix(*firmwareVersion, "4.") {
 		if err := checkABI(*sourceDirectory, *libraryDirectory); err != nil {
 			errs = append(errs, err)
 		}

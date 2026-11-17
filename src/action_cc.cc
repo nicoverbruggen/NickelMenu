@@ -1037,24 +1037,24 @@ NM_ACTION_(nickel_bluetooth) {
     Device *dev = get_Device_getCurrentDevice();
     if (!dev) return nullptr;
     bool (*hasBluetooth)(const Device *);
-    //libnickel 6.0.279225 * _ZNK6Device12hasBluetoothEv
+    //libnickel 5.18.264769 * _ZNK6Device12hasBluetoothEv
     NM_ACT_XSYM(hasBluetooth, "_ZNK6Device12hasBluetoothEv", "could not resolve Device::hasBluetooth");
     NM_CHECK(nullptr, hasBluetooth(dev), "this device does not support Bluetooth");
 
     if (check || scan) {
         BluetoothManager *(*managerInstance)();
-        //libnickel 6.0.279225 * _ZN16BluetoothManager14sharedInstanceEv
+        //libnickel 5.18.264769 * _ZN16BluetoothManager14sharedInstanceEv
         NM_ACT_XSYM(managerInstance, "_ZN16BluetoothManager14sharedInstanceEv", "could not resolve BluetoothManager::sharedInstance");
         BluetoothManager *manager = managerInstance();
         NM_CHECK(nullptr, manager, "Bluetooth manager unavailable");
         bool (*up)(const BluetoothManager *);
-        //libnickel 6.0.279225 * _ZNK16BluetoothManager2upEv
+        //libnickel 5.18.264769 * _ZNK16BluetoothManager2upEv
         NM_ACT_XSYM(up, "_ZNK16BluetoothManager2upEv", "could not resolve BluetoothManager::up");
         const bool powered = up(manager);
         if (check) return nm_action_result_toast("Bluetooth is %s.", powered ? "on" : "off");
         NM_CHECK(nullptr, powered, "turn on Bluetooth before scanning");
         void (*startScan)(BluetoothManager *);
-        //libnickel 6.0.279225 * _ZN16BluetoothManager4scanEv
+        //libnickel 5.18.264769 * _ZN16BluetoothManager4scanEv
         NM_ACT_XSYM(startScan, "_ZN16BluetoothManager4scanEv", "could not resolve BluetoothManager::scan");
         startScan(manager);
         return nm_action_result_toast("Bluetooth scan requested.");
@@ -1064,10 +1064,10 @@ NM_ACTION_(nickel_bluetooth) {
     // argument is not the desired power state. Nickel flips its preference
     // and handles adapter power, reconnection and the Settings UI itself.
     std::shared_ptr<ServiceLocator> (*sharedLocator)();
-    //libnickel 6.0.279225 * _ZN14ServiceLocator14sharedInstanceEv
+    //libnickel 5.18.264769 * _ZN14ServiceLocator14sharedInstanceEv
     NM_ACT_XSYM(sharedLocator, "_ZN14ServiceLocator14sharedInstanceEv", "could not resolve ServiceLocator::sharedInstance");
     QSharedPointer<IBluetoothService> (*getService)(const ServiceLocator *);
-    //libnickel 6.0.279225 * _ZNK14ServiceLocator10getServiceI17IBluetoothServiceEEDTcldtcl7declvalIS_EE7resolveIT_EscPS2_LDnEEEv
+    //libnickel 5.18.264769 * _ZNK14ServiceLocator10getServiceI17IBluetoothServiceEEDTcldtcl7declvalIS_EE7resolveIT_EscPS2_LDnEEEv
     NM_ACT_XSYM(getService, "_ZNK14ServiceLocator10getServiceI17IBluetoothServiceEEDTcldtcl7declvalIS_EE7resolveIT_EscPS2_LDnEEEv", "could not resolve the Bluetooth service accessor");
     const auto locator = sharedLocator();
     NM_CHECK(nullptr, locator, "service locator unavailable");
@@ -1076,7 +1076,7 @@ NM_ACTION_(nickel_bluetooth) {
     auto *object = reinterpret_cast<QObject *>(service.data())->qt_metacast("BluetoothService");
     NM_CHECK(nullptr, object, "unsupported Bluetooth service");
     void (*userToggle)(void *, bool);
-    //libnickel 6.0.279225 * _ZN16BluetoothService22onUserToggledBluetoothEb
+    //libnickel 5.18.264769 * _ZN16BluetoothService22onUserToggledBluetoothEb
     NM_ACT_XSYM(userToggle, "_ZN16BluetoothService22onUserToggledBluetoothEb", "could not resolve BluetoothService::onUserToggledBluetooth");
 
     if (!toggle) {
