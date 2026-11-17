@@ -145,6 +145,40 @@ NM_ACTION_(nickel_open) {
         NM_LOG("nickel_open: detected firmware >15505 (new nav tab bar), checking special cases");
 
         if (!strcmp(arg1, "library") && (!strcmp(arg2, "dropbox") || !strcmp(arg2, "gdrive"))) {
+#if NM_QT_MAJOR >= 6
+            QWidget *nav = nullptr;
+            for (auto *widget : QApplication::allWidgets()) {
+                if (widget->inherits("MainNavView")) {
+                    NM_CHECK(nullptr, !nav, "multiple native navigation views found");
+                    nav = widget;
+                }
+            }
+            NM_CHECK(nullptr, nav, "native navigation view unavailable");
+
+            // Let Nickel initialize and own the More controller, then use the
+            // same signal as its service button. Its access checks stay intact.
+            NM_CHECK(nullptr, QMetaObject::invokeMethod(nav, "more", Qt::DirectConnection),
+                "could not open the native More menu");
+            QWidget *more = nullptr;
+            for (auto *widget : QApplication::allWidgets()) {
+                if (widget->inherits("MoreView") && widget->isVisible()) {
+                    NM_CHECK(nullptr, !more, "multiple native More views found");
+                    more = widget;
+                }
+            }
+            NM_CHECK(nullptr, more, "native More menu unavailable");
+            const char *button_name = !strcmp(arg2, "dropbox") ? "dropboxButton" : "googleDriveButton";
+            QWidget *button = more->findChild<QWidget *>(button_name);
+            if (!button || !button->isVisible() || !button->isEnabled()) {
+                nm_err_set("%s isn't available on this device.",
+                    !strcmp(arg2, "dropbox") ? "Dropbox" : "Google Drive");
+                return nullptr;
+            }
+            NM_CHECK(nullptr, QMetaObject::invokeMethod(more,
+                !strcmp(arg2, "dropbox") ? "dropbox" : "googleDrive", Qt::DirectConnection),
+                "could not activate the native cloud menu item");
+            return nm_action_result_silent();
+#else
             //libnickel 4.23.15505 * _ZN14MoreControllerC1Ev
             MoreController *(*MoreController__MoreController)(MoreController* _this);
             NM_ACT_XSYM(MoreController__MoreController, "_ZN14MoreControllerC1Ev", "could not dlsym MoreController::MoreController");
@@ -175,6 +209,7 @@ NM_ACTION_(nickel_open) {
             MoreController__deMoreController(mc);
 
             return nm_action_result_silent();
+#endif
         }
 
         NM_LOG("nickel_open: no special handling needed for '%s:%s' on fw >15505", arg1, arg2);
