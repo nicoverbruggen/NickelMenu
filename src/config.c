@@ -31,7 +31,7 @@ struct nm_config_file_t {
 // - Windows: [Tt]humbs.db, desktop.ini
 static int nm_config_files_filter(const struct dirent *de) {
     const char *bn = de->d_name;
-    char *ex = strrchr(bn, '.');
+    const char *ex = strrchr(bn, '.');
     ex = (ex && ex != bn && bn[0] != '.') ? ex : NULL;
     char lc = bn[strlen(bn)-1];
     if ((bn[0] == '.') ||
