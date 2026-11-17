@@ -61,7 +61,7 @@ void nm_action_result_free(nm_action_result_t *res);
     X(nickel_misc,        1, 1)   \
     X(nickel_open,        1, 1)   \
     X(nickel_wifi,        1, 1)   \
-    X(nickel_bluetooth,   1, 0)   \
+    X(nickel_bluetooth,   1, 1)   \
     X(nickel_orientation, 1, 1)   \
     X(nickel_screenshot,  1, 1)   \
     X(power,              1, 1)   \

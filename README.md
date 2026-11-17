@@ -28,7 +28,7 @@ Use `sh tools/build.sh --qt 6` or `--qt 5` to build one target. Set `CONTAINER_E
 
 The version comes from `git describe --tags --always --dirty`. Use `--version VERSION` to override it for a local test build. GitHub Actions builds both targets. The manual Release workflow builds an existing tag, runs the host tests, checks both packages and attaches them to one draft release. Tags starting with `qt6-` are marked as prereleases. Publish only after validating the packages on the intended firmware.
 
-Run the host action, parser and symbol-checker tests with `cd test/syms && go test ./...` using the Go version in `go.mod`. These tests and the package checks do not establish device compatibility.
+Run the host action, parser and symbol-checker tests with `cd test/syms && go test ./...` using the Go version in `go.mod`.
 
 ## Qt6 support and builds
 
@@ -44,6 +44,6 @@ make NH_QT_MAJOR=6 kobo
 
 Install the resulting `Kobo.tgz` through `.kobo` on Qt6 firmware. It contains only the plugin; documentation is created on user storage at first startup. Qt5 continues to use `KoboRoot.tgz`. To build against another NickelHook checkout, set `NICKELHOOK=/path/to/NickelHook`.
 
-The Qt6 port adapts selection menus and actions to the changed firmware APIs and checks private dependencies before using them. Extras, Bluetooth, Pocket and awards are unavailable in this port. Physical hardware actions still need device testing.
+The Qt6 port adapts selection menus and actions to the changed firmware APIs and checks private dependencies before using them. Bluetooth actions use Nickel’s Bluetooth settings on devices with a Bluetooth adapter. Extras, Pocket and awards are unavailable in this port.
 
-Qt6 actions resolve available firmware symbols without requiring exact machine-code hashes. The runtime still checks executable memory, native Qt allocation metadata and the Settings vtable slots it replaces. Navigation errors distinguish missing symbols from rejected dependencies. The symbol checker reports changed function fingerprints for review without rejecting a Qt6 rebuild. These checks do not prove private object-layout compatibility; new firmware still needs runtime testing.
+Qt6 actions resolve available firmware symbols without requiring exact machine-code hashes. The runtime still checks executable memory, native Qt allocation metadata and the Settings vtable slots it replaces. Navigation errors distinguish missing symbols from rejected dependencies. The symbol checker reports changed function fingerprints for review without rejecting a Qt6 rebuild. Firmware updates can change private object layouts.

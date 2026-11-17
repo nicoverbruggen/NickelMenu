@@ -19,7 +19,7 @@ int main(void) {
     assert(NM_ACTION_SUPPORTS(nickel_extras, 5));
     assert(!NM_ACTION_SUPPORTS(nickel_extras, 6));
     assert(NM_ACTION_SUPPORTS(nickel_bluetooth, 5));
-    assert(!NM_ACTION_SUPPORTS(nickel_bluetooth, 6));
+    assert(NM_ACTION_SUPPORTS(nickel_bluetooth, 6));
     assert(NM_ACTION_SUPPORTS(nickel_screenshot, 5));
     assert(NM_ACTION_SUPPORTS(nickel_screenshot, 6));
 #define X(name, qt5, qt6) do { \
@@ -40,6 +40,6 @@ int main(void) {
     NM_ACTIONS
 #undef X
     assert(count == 20);
-    assert(unsupported == (NM_QT_MAJOR == 6 ? 2 : 0));
+    assert(unsupported == (NM_QT_MAJOR == 6 ? 1 : 0));
     return 0;
 }
